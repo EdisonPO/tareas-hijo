@@ -1,0 +1,68 @@
+// Nombre de la caché. Si cambias esta versión, se crea una caché nueva
+const CACHE = "tareas-v2";
+
+// Archivos que se guardan para funcionar sin internet
+const ARCHIVOS = [
+    "./",
+    "./index.html",
+    "./styles.css",
+    "./app.js",
+    "./manifest.json",
+    "./iconos/android-chrome-192x192.png",
+    "./iconos/android-chrome-512x512.png"
+];
+
+// 1. Instalación: guardar los archivos en la caché
+self.addEventListener("install", function (e) {
+    e.waitUntil(
+        caches.open(CACHE).then(cache => cache.addAll(ARCHIVOS))
+    );
+    self.skipWaiting();
+});
+
+// 2. Activación: borrar cachés de versiones anteriores
+self.addEventListener("activate", function (e) {
+    e.waitUntil(
+        caches.keys().then(nombres =>
+            Promise.all(
+                nombres
+                    .filter(nombre => nombre !== CACHE)
+                    .map(nombre => caches.delete(nombre))
+            )
+        )
+    );
+    self.clients.claim();
+});
+
+// 3. Peticiones: primero intentar internet, si falla usar la caché
+self.addEventListener("fetch", function (e) {
+    if (e.request.method !== "GET") {
+        return;
+    }
+
+    e.respondWith(
+        fetch(e.request)
+            .then(function (respuesta) {
+                const copia = respuesta.clone();
+                caches.open(CACHE).then(cache => cache.put(e.request, copia));
+                return respuesta;
+            })
+            .catch(function () {
+                return caches.match(e.request);
+            })
+    );
+});
+
+// 4. Al tocar una notificación: abrir la app o traerla al frente
+self.addEventListener("notificationclick", function (e) {
+    e.notification.close();
+
+    e.waitUntil(
+        clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (ventanas) {
+            if (ventanas.length > 0) {
+                return ventanas[0].focus();
+            }
+            return clients.openWindow("./");
+        })
+    );
+});

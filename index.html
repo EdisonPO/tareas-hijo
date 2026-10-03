@@ -7,6 +7,9 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#7c3aed">
+    <link rel="apple-touch-icon" href="iconos/apple-touch-icon.png">
 </head>
 <body>
 
@@ -23,45 +26,45 @@
     </nav>
 
     <section>
-    <div class="encabezado-tareas">
-        <h2>Mis tareas</h2>
-        <button type="button" id="btn-nueva">+ Nueva tarea</button>
-    </div>
-
-    <form id="form-tarea" class="oculto">
-        <h3>Registrar tarea</h3>
-
-        <label for="descripcion">Descripción:</label>
-        <input type="text" id="descripcion" placeholder="Ej: Traer cartulina azul" required>
-
-        <label for="materia">Materia:</label>
-        <select id="materia" required>
-            <option value="">-- Elige --</option>
-            <option value="matematicas">Matemáticas</option>
-            <option value="lengua">Lengua</option>
-            <option value="ciencias">Ciencias</option>
-            <option value="ingles">Inglés</option>
-            <option value="otra">Otra</option>
-        </select>
-
-        <label for="tipo">Tipo:</label>
-        <select id="tipo">
-            <option value="deber">Deber</option>
-            <option value="comprar">Comprar</option>
-            <option value="evento">Evento / Reunión</option>
-        </select>
-
-        <label for="fecha">Fecha límite:</label>
-        <input type="date" id="fecha" required>
-
-        <div class="botones-form">
-            <button type="submit">Agregar</button>
-            <button type="button" id="btn-cancelar">Cancelar</button>
+        <div class="encabezado-tareas">
+            <h2>Mis tareas</h2>
+            <button type="button" id="btn-nueva">+ Nueva tarea</button>
         </div>
-    </form>
 
-    <ul id="lista-tareas"></ul>
-</section>
+        <form id="form-tarea" class="oculto">
+            <h3>Registrar tarea</h3>
+
+            <label for="descripcion">Descripción:</label>
+            <input type="text" id="descripcion" placeholder="Ej: Traer cartulina azul" required>
+
+            <label for="materia">Materia:</label>
+            <select id="materia" required>
+                <option value="">-- Elige --</option>
+                <option value="matematicas">Matemáticas</option>
+                <option value="lengua">Lengua</option>
+                <option value="ciencias">Ciencias</option>
+                <option value="ingles">Inglés</option>
+                <option value="otra">Otra</option>
+            </select>
+
+            <label for="tipo">Tipo:</label>
+            <select id="tipo">
+                <option value="deber">Deber</option>
+                <option value="comprar">Comprar</option>
+                <option value="evento">Evento / Reunión</option>
+            </select>
+
+            <label for="fecha">Fecha límite:</label>
+            <input type="date" id="fecha" required>
+
+            <div class="botones-form">
+                <button type="submit">Agregar</button>
+                <button type="button" id="btn-cancelar">Cancelar</button>
+            </div>
+        </form>
+
+        <ul id="lista-tareas"></ul>
+    </section>
 
     <aside>
         <h2>Resumen</h2>
@@ -71,6 +74,9 @@
         <p>Tareas atrasadas: <span id="tareas-atrasadas">0</span></p>
         <p>Pendiente de comprar: <span id="pendiente-comprar">0</span></p>
         <ul id="lista-compras"></ul>
+
+        <button type="button" id="btn-notificaciones" class="oculto">🔔 Activar recordatorios</button>
+        <div id="estado-notificaciones"></div>
     </aside>
 
     <footer>

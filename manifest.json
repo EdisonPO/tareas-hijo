@@ -1,0 +1,24 @@
+{
+    "name": "Tareas de mi hijo",
+    "short_name": "Tareas",
+    "id": "./",
+    "description": "Control de deberes, compras y avisos escolares",
+    "start_url": "./",
+    "scope": "./",
+    "display": "standalone",
+    "background_color": "#f5f3ff",
+    "theme_color": "#7c3aed",
+    "lang": "es",
+    "icons": [
+        {
+            "src": "iconos/android-chrome-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "iconos/android-chrome-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

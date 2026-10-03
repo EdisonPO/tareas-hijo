@@ -1,3 +1,5 @@
+// ===== Configuración inicial =====
+
 // Año automático en el footer
 document.getElementById("anio").textContent = new Date().getFullYear();
 
@@ -11,27 +13,10 @@ let filtroActual = "todas";
 const formulario = document.getElementById("form-tarea");
 const listaTareas = document.getElementById("lista-tareas");
 const botonesFiltro = document.querySelectorAll("nav button");
-
-// Botones para mostrar u ocultar el formulario
 const btnNueva = document.getElementById("btn-nueva");
 const btnCancelar = document.getElementById("btn-cancelar");
-
-// Muestra el formulario y esconde el botón "+ Nueva tarea"
-function abrirFormulario() {
-    formulario.classList.remove("oculto");
-    btnNueva.classList.add("oculto");
-    document.getElementById("descripcion").focus();
-}
-
-// Limpia y esconde el formulario, y vuelve a mostrar el botón
-function cerrarFormulario() {
-    formulario.reset();
-    formulario.classList.add("oculto");
-    btnNueva.classList.remove("oculto");
-}
-
-btnNueva.addEventListener("click", abrirFormulario);
-btnCancelar.addEventListener("click", cerrarFormulario);
+const btnNotificaciones = document.getElementById("btn-notificaciones");
+const estadoNotificaciones = document.getElementById("estado-notificaciones");
 
 // "Traductores": del value guardado al nombre que se muestra
 const nombresMaterias = {
@@ -48,7 +33,9 @@ const nombresTipos = {
     evento: "📅 Evento"
 };
 
-// Cuando se envía el formulario
+
+// ===== Eventos =====
+
 // Cuando se envía el formulario
 formulario.addEventListener("submit", function (e) {
     e.preventDefault();
@@ -68,22 +55,29 @@ formulario.addEventListener("submit", function (e) {
     cerrarFormulario();
 });
 
-// Cuando se hace clic en un botón de filtro
+// Botones para mostrar u ocultar el formulario
+btnNueva.addEventListener("click", abrirFormulario);
+btnCancelar.addEventListener("click", cerrarFormulario);
+
+// Botones de filtro del nav
 botonesFiltro.forEach(function (boton) {
     boton.addEventListener("click", function () {
-        // 1. Guardar el filtro de este botón
         filtroActual = boton.dataset.filtro;
-
-        // 2. Quitar la clase "activo" a todos los botones
         botonesFiltro.forEach(b => b.classList.remove("activo"));
-
-        // 3. Poner la clase "activo" solo a este botón
         boton.classList.add("activo");
-
-        // 4. Volver a dibujar la lista
         mostrarTareas();
     });
 });
+
+// Botón de recordatorios: pedir permiso y mostrar una notificación de prueba
+btnNotificaciones.addEventListener("click", async function () {
+    await Notification.requestPermission();
+    actualizarBotonNotificaciones();
+    revisarRecordatorios(true);
+});
+
+
+// ===== Funciones de ayuda =====
 
 // Guarda el arreglo completo en localStorage
 function guardarTareas() {
@@ -100,6 +94,7 @@ function obtenerHoy(diasExtra = 0) {
     const dia = String(fecha.getDate()).padStart(2, "0");
     return `${anio}-${mes}-${dia}`;
 }
+
 // Convierte "2026-10-06" en "06/10/2026"
 function formatearFecha(fecha) {
     const [anio, mes, dia] = fecha.split("-");
@@ -113,6 +108,26 @@ function crearEtiqueta(texto, clase) {
     span.textContent = texto;
     return span;
 }
+
+
+// ===== Formulario =====
+
+// Muestra el formulario y esconde el botón "+ Nueva tarea"
+function abrirFormulario() {
+    formulario.classList.remove("oculto");
+    btnNueva.classList.add("oculto");
+    document.getElementById("descripcion").focus();
+}
+
+// Limpia y esconde el formulario, y vuelve a mostrar el botón
+function cerrarFormulario() {
+    formulario.reset();
+    formulario.classList.add("oculto");
+    btnNueva.classList.remove("oculto");
+}
+
+
+// ===== Acciones sobre las tareas =====
 
 // Cambia una tarea de pendiente a realizada, o al revés
 function cambiarEstado(id) {
@@ -132,25 +147,25 @@ function eliminarTarea(id) {
     mostrarTareas();
 }
 
+
+// ===== Dibujar en la página =====
+
 // Actualiza los números y la lista de compras del aside
 function actualizarResumen() {
     const hoy = obtenerHoy();
 
-    // Calcular cada dato (siempre con TODAS las tareas, sin importar el filtro)
     const total = tareas.length;
     const pendientes = tareas.filter(t => !t.realizada).length;
     const realizadas = tareas.filter(t => t.realizada).length;
     const atrasadas = tareas.filter(t => !t.realizada && t.fecha < hoy).length;
     const comprasPendientes = tareas.filter(t => !t.realizada && t.tipo === "comprar");
 
-    // Poner los números en los span del aside
     document.getElementById("total-tareas").textContent = total;
     document.getElementById("tareas-pendientes").textContent = pendientes;
     document.getElementById("tareas-realizadas").textContent = realizadas;
     document.getElementById("tareas-atrasadas").textContent = atrasadas;
     document.getElementById("pendiente-comprar").textContent = comprasPendientes.length;
 
-    // Llenar la lista de compras con la descripción de cada artículo
     const listaCompras = document.getElementById("lista-compras");
     listaCompras.innerHTML = "";
 
@@ -196,7 +211,6 @@ function mostrarTareas() {
     tareasVisibles.forEach(function (tarea) {
         const li = document.createElement("li");
 
-        // Clases para que el CSS decida colores y estilos
         li.classList.add(`tipo-${tarea.tipo}`);
         if (tarea.realizada) {
             li.classList.add("realizada");
@@ -214,12 +228,10 @@ function mostrarTareas() {
         const info = document.createElement("div");
         info.classList.add("info");
 
-        // Descripción grande
         const descripcion = document.createElement("p");
         descripcion.classList.add("descripcion");
         descripcion.textContent = tarea.descripcion;
 
-        // Etiquetas: tipo, materia y fecha
         const etiquetas = document.createElement("div");
         etiquetas.classList.add("etiquetas");
 
@@ -249,11 +261,93 @@ function mostrarTareas() {
             eliminarTarea(tarea.id);
         });
 
-        // Meter todo dentro del <li>
         li.append(casilla, info, botonEliminar);
         listaTareas.appendChild(li);
     });
 
-    // Cada vez que se redibuja la lista, también se actualiza el resumen
     actualizarResumen();
 }
+
+
+// ===== Recordatorios con notificaciones =====
+
+// Muestra el botón o un mensaje según el permiso actual
+function actualizarBotonNotificaciones() {
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+        btnNotificaciones.classList.add("oculto");
+        estadoNotificaciones.textContent = "Este navegador no permite notificaciones. En iPhone, primero instala la app en la pantalla de inicio.";
+        return;
+    }
+
+    if (Notification.permission === "granted") {
+        btnNotificaciones.classList.add("oculto");
+        estadoNotificaciones.textContent = "🔔 Recordatorios activados";
+    } else if (Notification.permission === "denied") {
+        btnNotificaciones.classList.add("oculto");
+        estadoNotificaciones.textContent = "Las notificaciones están bloqueadas. Actívalas desde el candado junto a la dirección de la página.";
+    } else {
+        btnNotificaciones.classList.remove("oculto");
+        estadoNotificaciones.textContent = "";
+    }
+}
+
+// Revisa las tareas urgentes y muestra una notificación (máximo una al día)
+async function revisarRecordatorios(forzar = false) {
+    if (!("Notification" in window) || Notification.permission !== "granted") {
+        return;
+    }
+
+    const hoy = obtenerHoy();
+
+    if (!forzar && localStorage.getItem("ultimoAviso") === hoy) {
+        return;
+    }
+
+    const manana = obtenerHoy(1);
+    const pendientes = tareas.filter(t => !t.realizada);
+    const atrasadas = pendientes.filter(t => t.fecha < hoy).length;
+    const paraHoy = pendientes.filter(t => t.fecha === hoy).length;
+    const paraManana = pendientes.filter(t => t.fecha === manana).length;
+
+    const partes = [];
+    if (atrasadas > 0) partes.push(`⚠️ ${atrasadas} atrasada(s)`);
+    if (paraHoy > 0) partes.push(`⏰ ${paraHoy} para hoy`);
+    if (paraManana > 0) partes.push(`👀 ${paraManana} para mañana`);
+
+    let mensaje = partes.join(" · ");
+
+    if (partes.length === 0) {
+        if (!forzar) {
+            return;
+        }
+        mensaje = "¡Todo al día! No hay tareas urgentes 🎉";
+    }
+
+    const registro = await navigator.serviceWorker.ready;
+    registro.showNotification("📚 Tareas de mi hijo", {
+        body: mensaje,
+        icon: "iconos/android-chrome-192x192.png",
+        badge: "iconos/android-chrome-192x192.png",
+        tag: "resumen-diario"
+    });
+
+    localStorage.setItem("ultimoAviso", hoy);
+}
+
+
+// ===== Arranque de la app =====
+
+// Dibujar las tareas guardadas
+mostrarTareas();
+
+// Registrar el service worker para que la página funcione como app
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js")
+        .then(() => console.log("Service worker registrado"))
+        .catch(error => console.log("Error al registrar el service worker:", error));
+}
+
+// Preparar recordatorios: al abrir la app, y luego cada hora mientras esté abierta
+actualizarBotonNotificaciones();
+revisarRecordatorios();
+setInterval(revisarRecordatorios, 60 * 60 * 1000);

@@ -508,6 +508,39 @@ footer a {
     box-shadow: none;
 }
 
+/* ===== Recordatorios ===== */
+#btn-notificaciones {
+    width: 100%;
+    margin-top: 16px;
+    padding: 12px;
+    border: 2px dashed var(--morado);
+    border-radius: 12px;
+    background-color: #faf8ff;
+    color: var(--morado);
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+#btn-notificaciones:hover {
+    background-color: var(--morado);
+    color: white;
+}
+
+#estado-notificaciones {
+    margin-top: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--texto-suave);
+    text-align: center;
+}
+
+#estado-notificaciones:empty {
+    display: none;
+}
+
 /* ===== Pantallas grandes (tablet y compu) ===== */
 @media (min-width: 768px) {
     body {
