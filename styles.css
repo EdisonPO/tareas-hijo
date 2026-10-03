@@ -234,14 +234,13 @@ form button:active {
     border-left-color: #9ca3af;
 }
 
-#lista-tareas li.realizada span {
+#lista-tareas li.realizada .descripcion {
     text-decoration: line-through;
 }
 
 /* Mensaje cuando no hay tareas en el filtro */
 #lista-tareas li.vacio {
     justify-content: center;
-    border-left: none;
     border: 2px dashed var(--borde);
     background-color: transparent;
     color: var(--texto-suave);
@@ -253,6 +252,7 @@ form button:active {
     box-shadow: none;
 }
 
+/* Casilla */
 #lista-tareas input[type="checkbox"] {
     width: 22px;
     height: 22px;
@@ -261,11 +261,67 @@ form button:active {
     accent-color: var(--verde);
 }
 
-#lista-tareas span {
+/* Información de la tarea */
+.info {
     flex: 1;
-    font-weight: 600;
+    min-width: 0;
 }
 
+.descripcion {
+    font-weight: 800;
+    font-size: 1.05rem;
+    margin-bottom: 6px;
+    word-break: break-word;
+}
+
+/* Etiquetas */
+.etiquetas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.etiqueta {
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background-color: white;
+    border: 1px solid var(--borde);
+    color: var(--texto-suave);
+}
+
+.etiqueta-tipo {
+    color: white;
+    border-color: transparent;
+    background-color: var(--morado);
+}
+
+#lista-tareas li.tipo-deber .etiqueta-tipo   { background-color: var(--azul); }
+#lista-tareas li.tipo-comprar .etiqueta-tipo { background-color: var(--naranja); }
+#lista-tareas li.tipo-evento .etiqueta-tipo  { background-color: var(--verde); }
+#lista-tareas li.realizada .etiqueta-tipo    { background-color: #9ca3af; }
+
+.etiqueta-atrasada {
+    color: white;
+    border-color: transparent;
+    background-color: var(--rojo);
+    animation: latir 1.4s ease-in-out infinite;
+}
+
+.etiqueta-hoy {
+    color: white;
+    border-color: transparent;
+    background-color: var(--amarillo);
+}
+
+.etiqueta-manana {
+    color: #92400e;
+    border-color: #fcd34d;
+    background-color: #fef3c7;
+}
+
+/* Botón eliminar */
 #lista-tareas li button {
     flex-shrink: 0;
     padding: 6px 12px;
@@ -284,6 +340,7 @@ form button:active {
     color: white;
 }
 
+/* Animaciones */
 @keyframes aparecer {
     from {
         opacity: 0;
@@ -293,6 +350,11 @@ form button:active {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+@keyframes latir {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.08); }
 }
 
 /* ===== Resumen (aside) ===== */

@@ -90,19 +90,28 @@ function guardarTareas() {
     localStorage.setItem("tareas", JSON.stringify(tareas));
 }
 
-// Devuelve la fecha de hoy en formato "aaaa-mm-dd"
-function obtenerHoy() {
-    const hoy = new Date();
-    const anio = hoy.getFullYear();
-    const mes = String(hoy.getMonth() + 1).padStart(2, "0");
-    const dia = String(hoy.getDate()).padStart(2, "0");
+// Devuelve una fecha en formato "aaaa-mm-dd"
+// obtenerHoy() = hoy, obtenerHoy(1) = mañana
+function obtenerHoy(diasExtra = 0) {
+    const fecha = new Date();
+    fecha.setDate(fecha.getDate() + diasExtra);
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+    const dia = String(fecha.getDate()).padStart(2, "0");
     return `${anio}-${mes}-${dia}`;
 }
-
 // Convierte "2026-10-06" en "06/10/2026"
 function formatearFecha(fecha) {
     const [anio, mes, dia] = fecha.split("-");
     return `${dia}/${mes}/${anio}`;
+}
+
+// Crea una etiqueta pequeña (<span>) con un texto y una clase de estilo
+function crearEtiqueta(texto, clase) {
+    const span = document.createElement("span");
+    span.classList.add("etiqueta", clase);
+    span.textContent = texto;
+    return span;
 }
 
 // Cambia una tarea de pendiente a realizada, o al revés
@@ -156,6 +165,9 @@ function actualizarResumen() {
 function mostrarTareas() {
     listaTareas.innerHTML = "";
 
+    const hoy = obtenerHoy();
+    const manana = obtenerHoy(1);
+
     // Elegir qué tareas mostrar según el filtro
     let tareasVisibles = tareas;
 
@@ -164,6 +176,14 @@ function mostrarTareas() {
     } else if (filtroActual === "realizadas") {
         tareasVisibles = tareas.filter(t => t.realizada);
     }
+
+    // Ordenar: primero las pendientes, y dentro de cada grupo por fecha más cercana
+    tareasVisibles = [...tareasVisibles].sort(function (a, b) {
+        if (a.realizada !== b.realizada) {
+            return a.realizada ? 1 : -1;
+        }
+        return a.fecha.localeCompare(b.fecha);
+    });
 
     // Si no hay tareas que mostrar, poner un mensaje
     if (tareasVisibles.length === 0) {
@@ -190,11 +210,37 @@ function mostrarTareas() {
             cambiarEstado(tarea.id);
         });
 
-        // Texto de la tarea
-        const texto = document.createElement("span");
-        const materia = nombresMaterias[tarea.materia] || tarea.materia;
-        const tipo = nombresTipos[tarea.tipo] || tarea.tipo;
-        texto.textContent = ` ${tipo} | ${materia} | ${tarea.descripcion} | ${formatearFecha(tarea.fecha)} `;
+        // Contenedor de la información
+        const info = document.createElement("div");
+        info.classList.add("info");
+
+        // Descripción grande
+        const descripcion = document.createElement("p");
+        descripcion.classList.add("descripcion");
+        descripcion.textContent = tarea.descripcion;
+
+        // Etiquetas: tipo, materia y fecha
+        const etiquetas = document.createElement("div");
+        etiquetas.classList.add("etiquetas");
+
+        etiquetas.append(
+            crearEtiqueta(nombresTipos[tarea.tipo] || tarea.tipo, "etiqueta-tipo"),
+            crearEtiqueta(nombresMaterias[tarea.materia] || tarea.materia, "etiqueta-materia"),
+            crearEtiqueta(`🗓️ ${formatearFecha(tarea.fecha)}`, "etiqueta-fecha")
+        );
+
+        // Alertas de urgencia, solo para tareas pendientes
+        if (!tarea.realizada) {
+            if (tarea.fecha < hoy) {
+                etiquetas.append(crearEtiqueta("⚠️ Atrasada", "etiqueta-atrasada"));
+            } else if (tarea.fecha === hoy) {
+                etiquetas.append(crearEtiqueta("⏰ Es para hoy", "etiqueta-hoy"));
+            } else if (tarea.fecha === manana) {
+                etiquetas.append(crearEtiqueta("👀 Mañana", "etiqueta-manana"));
+            }
+        }
+
+        info.append(descripcion, etiquetas);
 
         // Botón para eliminar
         const botonEliminar = document.createElement("button");
@@ -203,14 +249,11 @@ function mostrarTareas() {
             eliminarTarea(tarea.id);
         });
 
-        // Meter las tres partes dentro del <li>
-        li.append(casilla, texto, botonEliminar);
+        // Meter todo dentro del <li>
+        li.append(casilla, info, botonEliminar);
         listaTareas.appendChild(li);
     });
 
     // Cada vez que se redibuja la lista, también se actualiza el resumen
     actualizarResumen();
 }
-
-// Al abrir la página, dibujar las tareas que ya estaban guardadas
-mostrarTareas();
