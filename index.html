@@ -11,11 +11,57 @@
     <meta name="theme-color" content="#7c3aed">
     <link rel="apple-touch-icon" href="iconos/apple-touch-icon.png">
 </head>
-<body>
+<body class="cargando">
 
     <header>
         <h1>Tareas de mi hijo</h1>
+        <div id="barra-usuario">
+            <span id="nombre-usuario"></span>
+            <button type="button" id="btn-salir">Cerrar sesión</button>
+        </div>
     </header>
+
+    <!-- Se ve mientras Firebase revisa si hay una sesión abierta -->
+    <div id="pantalla-cargando">Cargando… ⏳</div>
+
+    <!-- Pantalla de inicio de sesión -->
+    <div id="pantalla-login">
+        <div class="tarjeta-login">
+
+            <!-- Panel para iniciar sesión o registrarse -->
+            <div id="panel-acceso">
+                <h2>Bienvenido</h2>
+                <p class="texto-ayuda">Inicia sesión para ver las tareas de tu familia.</p>
+
+                <button type="button" id="btn-google" class="btn-google">Continuar con Google</button>
+
+                <div class="separador"><span>o con tu correo</span></div>
+
+                <form id="form-acceso">
+                    <label for="correo">Correo:</label>
+                    <input type="email" id="correo" placeholder="tucorreo@ejemplo.com" autocomplete="email" required>
+
+                    <label for="clave">Contraseña:</label>
+                    <input type="password" id="clave" placeholder="Mínimo 6 caracteres" autocomplete="current-password" minlength="6" required>
+
+                    <button type="submit" id="btn-acceso">Iniciar sesión</button>
+                </form>
+
+                <button type="button" id="btn-cambiar-modo" class="enlace">¿No tienes cuenta? Regístrate</button>
+                <button type="button" id="btn-olvide" class="enlace">¿Olvidaste tu contraseña?</button>
+            </div>
+
+            <!-- Panel para mensajes: verificar correo o sin acceso -->
+            <div id="panel-mensaje" class="oculto">
+                <h2 id="mensaje-titulo"></h2>
+                <p id="mensaje-texto" class="texto-ayuda"></p>
+                <button type="button" id="btn-reintentar" class="btn-principal">Ya lo hice, reintentar</button>
+                <button type="button" id="btn-salir-mensaje" class="enlace">Cerrar sesión</button>
+            </div>
+
+            <p id="aviso-login"></p>
+        </div>
+    </div>
 
     <nav>
         <ul>
@@ -84,6 +130,6 @@
         <p><a href="https://github.com/EdisonPO" target="_blank">Ver en GitHub</a></p>
     </footer>
 
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
 </body>
 </html>

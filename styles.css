@@ -576,3 +576,190 @@ footer a {
         transition: none !important;
     }
 }
+
+/* ===== Estados de la app: cargando / sin sesión / con sesión ===== */
+#pantalla-cargando,
+#pantalla-login {
+    display: none;
+}
+
+body.cargando #pantalla-cargando,
+body.sin-sesion #pantalla-login {
+    display: block;
+}
+
+body.cargando nav,
+body.cargando section,
+body.cargando aside,
+body.sin-sesion nav,
+body.sin-sesion section,
+body.sin-sesion aside,
+body:not(.con-sesion) #barra-usuario {
+    display: none;
+}
+
+/* Sin sesión, todo va en una sola columna */
+body:not(.con-sesion) {
+    grid-template-columns: 1fr;
+    grid-template-areas: none;
+}
+
+body:not(.con-sesion) > * {
+    grid-area: auto;
+}
+
+#pantalla-cargando {
+    text-align: center;
+    padding: 40px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--texto-suave);
+}
+
+/* ===== Barra de usuario en el header ===== */
+#barra-usuario {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-weight: 700;
+}
+
+#btn-salir {
+    padding: 6px 14px;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 999px;
+    background: transparent;
+    color: white;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+#btn-salir:hover {
+    background: white;
+    color: var(--morado);
+}
+
+/* ===== Tarjeta de inicio de sesión ===== */
+.tarjeta-login {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 28px 24px;
+    background-color: var(--tarjeta);
+    border-radius: var(--radio);
+    border-top: 6px solid var(--morado);
+    box-shadow: var(--sombra);
+}
+
+.texto-ayuda {
+    margin-bottom: 18px;
+    color: var(--texto-suave);
+    font-weight: 600;
+}
+
+#pantalla-login input[type="email"],
+#pantalla-login input[type="password"] {
+    width: 100%;
+    padding: 12px 14px;
+    background-color: #faf8ff;
+    border: 2px solid var(--borde);
+    border-radius: 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    color: var(--texto);
+}
+
+#form-acceso {
+    margin-bottom: 8px;
+}
+
+.btn-google {
+    width: 100%;
+    padding: 13px;
+    background-color: white;
+    color: var(--texto);
+    border: 2px solid var(--borde);
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.btn-google:hover {
+    border-color: var(--morado);
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.15);
+}
+
+.separador {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 20px 0 6px;
+    color: var(--texto-suave);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.separador::before,
+.separador::after {
+    content: "";
+    flex: 1;
+    height: 2px;
+    background-color: var(--borde);
+}
+
+.btn-principal {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: white;
+    cursor: pointer;
+    background: linear-gradient(120deg, var(--morado), var(--rosa));
+    box-shadow: 0 6px 18px rgba(236, 72, 153, 0.35);
+}
+
+.enlace {
+    width: 100%;
+    margin-top: 10px;
+    background: none;
+    border: none;
+    color: var(--morado);
+    font-family: inherit;
+    font-size: 0.92rem;
+    font-weight: 700;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+#aviso-login {
+    margin-top: 14px;
+    text-align: center;
+    font-weight: 700;
+}
+
+#aviso-login:empty {
+    display: none;
+}
+
+#aviso-login.aviso-error {
+    color: var(--rojo);
+}
+
+#aviso-login.aviso-ok {
+    color: var(--verde);
+}
+
+.btn-google:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}

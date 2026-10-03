@@ -1,7 +1,7 @@
 // Nombre de la caché. Si cambias esta versión, se crea una caché nueva
-const CACHE = "tareas-v2";
+const CACHE = "tareas-v3";
 
-// Archivos que se guardan para funcionar sin internet
+// Archivos que se guardan para que la app abra más rápido
 const ARCHIVOS = [
     "./",
     "./index.html",
@@ -34,9 +34,12 @@ self.addEventListener("activate", function (e) {
     self.clients.claim();
 });
 
-// 3. Peticiones: primero intentar internet, si falla usar la caché
+// 3. Peticiones: solo manejar las de nuestro propio sitio
 self.addEventListener("fetch", function (e) {
-    if (e.request.method !== "GET") {
+    const esDeOtroSitio = new URL(e.request.url).origin !== self.location.origin;
+
+    // Firebase, Google y otros sitios pasan directo a internet
+    if (e.request.method !== "GET" || esDeOtroSitio) {
         return;
     }
 
