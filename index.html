@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tareas de mi hijo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <header>
+        <h1>Tareas de mi hijo</h1>
+    </header>
+
+    <nav>
+        <ul>
+            <li><button data-filtro="todas" class="activo">Todas</button></li>
+            <li><button data-filtro="pendientes">Pendientes</button></li>
+            <li><button data-filtro="realizadas">Realizadas</button></li>
+        </ul>
+    </nav>
+
+    <section>
+    <div class="encabezado-tareas">
+        <h2>Mis tareas</h2>
+        <button type="button" id="btn-nueva">+ Nueva tarea</button>
+    </div>
+
+    <form id="form-tarea" class="oculto">
+        <h3>Registrar tarea</h3>
+
+        <label for="descripcion">Descripción:</label>
+        <input type="text" id="descripcion" placeholder="Ej: Traer cartulina azul" required>
+
+        <label for="materia">Materia:</label>
+        <select id="materia" required>
+            <option value="">-- Elige --</option>
+            <option value="matematicas">Matemáticas</option>
+            <option value="lengua">Lengua</option>
+            <option value="ciencias">Ciencias</option>
+            <option value="ingles">Inglés</option>
+            <option value="otra">Otra</option>
+        </select>
+
+        <label for="tipo">Tipo:</label>
+        <select id="tipo">
+            <option value="deber">Deber</option>
+            <option value="comprar">Comprar</option>
+            <option value="evento">Evento / Reunión</option>
+        </select>
+
+        <label for="fecha">Fecha límite:</label>
+        <input type="date" id="fecha" required>
+
+        <div class="botones-form">
+            <button type="submit">Agregar</button>
+            <button type="button" id="btn-cancelar">Cancelar</button>
+        </div>
+    </form>
+
+    <ul id="lista-tareas"></ul>
+</section>
+
+    <aside>
+        <h2>Resumen</h2>
+        <p>Total de tareas: <span id="total-tareas">0</span></p>
+        <p>Tareas pendientes: <span id="tareas-pendientes">0</span></p>
+        <p>Tareas realizadas: <span id="tareas-realizadas">0</span></p>
+        <p>Tareas atrasadas: <span id="tareas-atrasadas">0</span></p>
+        <p>Pendiente de comprar: <span id="pendiente-comprar">0</span></p>
+        <ul id="lista-compras"></ul>
+    </aside>
+
+    <footer>
+        <p>&copy; <span id="anio"></span> Desarrollado por Edison</p>
+        <p><a href="https://github.com/EdisonPO" target="_blank">Ver en GitHub</a></p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

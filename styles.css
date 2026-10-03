@@ -1,0 +1,483 @@
+/* ===== Variables de colores ===== */
+:root {
+    --morado: #7c3aed;
+    --morado-oscuro: #5b21b6;
+    --rosa: #ec4899;
+    --naranja: #f97316;
+    --amarillo: #f59e0b;
+    --verde: #10b981;
+    --azul: #3b82f6;
+    --rojo: #ef4444;
+    --texto: #1f1b3a;
+    --texto-suave: #6b6585;
+    --borde: #e6e1f5;
+    --tarjeta: #ffffff;
+    --radio: 18px;
+    --sombra: 0 8px 24px rgba(124, 58, 237, 0.12);
+}
+
+/* ===== Reinicio básico ===== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "Nunito", "Segoe UI", Arial, sans-serif;
+    color: var(--texto);
+    line-height: 1.5;
+    min-height: 100vh;
+    padding: 16px;
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    gap: 18px;
+    align-content: start;
+    background: linear-gradient(135deg, #fdf2f8 0%, #ede9fe 50%, #e0f2fe 100%) fixed;
+}
+
+/* ===== Encabezado con degradado animado ===== */
+header {
+    padding: 28px 20px;
+    border-radius: var(--radio);
+    text-align: center;
+    color: white;
+    background: linear-gradient(120deg, var(--morado), var(--rosa), var(--naranja), var(--morado));
+    background-size: 300% 300%;
+    animation: moverDegradado 10s ease infinite;
+    box-shadow: 0 10px 30px rgba(236, 72, 153, 0.35);
+}
+
+header h1 {
+    font-size: 1.9rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+header h1::before {
+    content: "📚 ";
+}
+
+@keyframes moverDegradado {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* ===== Filtros (nav) ===== */
+nav ul {
+    list-style: none;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+nav button {
+    padding: 10px 20px;
+    background-color: var(--tarjeta);
+    color: var(--morado);
+    border: none;
+    border-radius: 999px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
+    transition: transform 0.2s, background 0.2s, color 0.2s;
+}
+
+nav button:hover {
+    background: linear-gradient(120deg, var(--morado), var(--rosa));
+    color: white;
+    transform: translateY(-3px);
+}
+
+/* Filtro seleccionado */
+nav button.activo {
+    background: linear-gradient(120deg, var(--morado), var(--rosa));
+    color: white;
+    box-shadow: 0 6px 16px rgba(236, 72, 153, 0.4);
+}
+
+/* ===== Tarjetas: section y aside ===== */
+section,
+aside {
+    background-color: var(--tarjeta);
+    padding: 24px;
+    border-radius: var(--radio);
+    box-shadow: var(--sombra);
+    border-top: 6px solid var(--morado);
+}
+
+aside {
+    border-top-color: var(--rosa);
+}
+
+h2 {
+    font-size: 1.3rem;
+    font-weight: 800;
+    margin-bottom: 14px;
+    background: linear-gradient(120deg, var(--morado), var(--rosa));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* ===== Formulario ===== */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 28px;
+}
+
+label {
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-top: 8px;
+    color: var(--morado-oscuro);
+}
+
+input[type="text"],
+input[type="date"],
+select {
+    width: 100%;
+    padding: 12px 14px;
+    background-color: #faf8ff;
+    border: 2px solid var(--borde);
+    border-radius: 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    color: var(--texto);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus,
+select:focus {
+    outline: none;
+    border-color: var(--morado);
+    box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.18);
+}
+
+form button {
+    margin-top: 16px;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: white;
+    cursor: pointer;
+    background: linear-gradient(120deg, var(--morado), var(--rosa));
+    box-shadow: 0 6px 18px rgba(236, 72, 153, 0.35);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+form button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(236, 72, 153, 0.45);
+}
+
+form button:active {
+    transform: scale(0.97);
+}
+
+/* ===== Lista de tareas ===== */
+#lista-tareas {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#lista-tareas li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 14px;
+    border-left: 6px solid var(--morado);
+    background-color: #faf8ff;
+    animation: aparecer 0.35s ease;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+#lista-tareas li:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+/* Color según el tipo de tarea */
+#lista-tareas li.tipo-deber {
+    border-left-color: var(--azul);
+    background-color: #eff6ff;
+}
+
+#lista-tareas li.tipo-comprar {
+    border-left-color: var(--naranja);
+    background-color: #fff7ed;
+}
+
+#lista-tareas li.tipo-evento {
+    border-left-color: var(--verde);
+    background-color: #ecfdf5;
+}
+
+/* Tarea realizada */
+#lista-tareas li.realizada {
+    opacity: 0.55;
+    background-color: #f3f4f6;
+    border-left-color: #9ca3af;
+}
+
+#lista-tareas li.realizada span {
+    text-decoration: line-through;
+}
+
+/* Mensaje cuando no hay tareas en el filtro */
+#lista-tareas li.vacio {
+    justify-content: center;
+    border-left: none;
+    border: 2px dashed var(--borde);
+    background-color: transparent;
+    color: var(--texto-suave);
+    font-weight: 600;
+}
+
+#lista-tareas li.vacio:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+#lista-tareas input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: var(--verde);
+}
+
+#lista-tareas span {
+    flex: 1;
+    font-weight: 600;
+}
+
+#lista-tareas li button {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    background-color: white;
+    color: var(--rojo);
+    border: 2px solid var(--rojo);
+    border-radius: 999px;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+#lista-tareas li button:hover {
+    background-color: var(--rojo);
+    color: white;
+}
+
+@keyframes aparecer {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ===== Resumen (aside) ===== */
+aside p {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    border-radius: 12px;
+    border-left: 5px solid var(--morado);
+    background-color: #faf8ff;
+    font-weight: 600;
+}
+
+aside span {
+    min-width: 34px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    text-align: center;
+    font-weight: 800;
+    color: white;
+    background-color: var(--morado);
+}
+
+/* Un color distinto para cada dato del resumen */
+aside p:nth-of-type(1) { border-left-color: var(--azul); }
+aside p:nth-of-type(1) span { background-color: var(--azul); }
+
+aside p:nth-of-type(2) { border-left-color: var(--amarillo); }
+aside p:nth-of-type(2) span { background-color: var(--amarillo); }
+
+aside p:nth-of-type(3) { border-left-color: var(--verde); }
+aside p:nth-of-type(3) span { background-color: var(--verde); }
+
+aside p:nth-of-type(4) { border-left-color: var(--rojo); }
+aside p:nth-of-type(4) span { background-color: var(--rojo); }
+
+aside p:nth-of-type(5) { border-left-color: var(--naranja); }
+aside p:nth-of-type(5) span { background-color: var(--naranja); }
+
+/* Lista de compras como etiquetas */
+#lista-compras {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+#lista-compras li {
+    padding: 8px 12px;
+    border-radius: 10px;
+    background-color: #fff7ed;
+    border: 2px dashed var(--naranja);
+    color: #9a3412;
+    font-weight: 600;
+    font-size: 0.92rem;
+}
+
+#lista-compras li::before {
+    content: "🛒 ";
+}
+
+/* ===== Pie de página ===== */
+footer {
+    text-align: center;
+    color: var(--texto-suave);
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 12px;
+}
+
+footer a {
+    color: var(--morado);
+    font-weight: 800;
+}
+
+/* ===== Clase para ocultar elementos ===== */
+.oculto {
+    display: none;
+}
+
+/* ===== Encabezado de la lista con el botón ===== */
+.encabezado-tareas {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.encabezado-tareas h2 {
+    margin-bottom: 0;
+}
+
+#btn-nueva {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: white;
+    cursor: pointer;
+    background: linear-gradient(120deg, var(--morado), var(--rosa));
+    box-shadow: 0 6px 16px rgba(236, 72, 153, 0.35);
+    transition: transform 0.15s;
+}
+
+#btn-nueva:hover {
+    transform: translateY(-2px);
+}
+
+/* ===== Formulario como recuadro desplegable ===== */
+#form-tarea {
+    padding: 18px;
+    margin-bottom: 20px;
+    border: 2px solid var(--borde);
+    border-radius: 14px;
+    background-color: #faf8ff;
+    animation: aparecer 0.3s ease;
+}
+
+#form-tarea h3 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--morado-oscuro);
+}
+
+.botones-form {
+    display: flex;
+    gap: 10px;
+}
+
+.botones-form button {
+    flex: 1;
+}
+
+#btn-cancelar {
+    background: white;
+    color: var(--texto-suave);
+    border: 2px solid var(--borde);
+    box-shadow: none;
+}
+
+#btn-cancelar:hover {
+    color: var(--rojo);
+    border-color: var(--rojo);
+    box-shadow: none;
+}
+
+/* ===== Pantallas grandes (tablet y compu) ===== */
+@media (min-width: 768px) {
+    body {
+        grid-template-columns: 2fr 1fr;
+        grid-template-areas:
+            "header header"
+            "nav    nav"
+            "section aside"
+            "footer footer";
+        align-items: start;
+        padding: 24px;
+    }
+
+    header  { grid-area: header; }
+    nav     { grid-area: nav; }
+    section { grid-area: section; }
+    aside   { grid-area: aside; }
+    footer  { grid-area: footer; }
+
+    nav ul {
+        justify-content: flex-start;
+    }
+
+    header h1 {
+        font-size: 2.3rem;
+    }
+}
+
+/* ===== Respeta a quien prefiere menos movimiento ===== */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+}
