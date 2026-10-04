@@ -69,6 +69,22 @@ let modoRegistro = false;        // false = iniciar sesión, true = crear cuenta
 let temporizadorToast = null;
 
 
+// ===== Texto compartido desde otra app (WhatsApp, Gmail, etc.) =====
+// Android abre la app con una dirección como: index.html?texto=Para mañana traer...
+const parametros = new URLSearchParams(location.search);
+
+let textoCompartido = [
+    parametros.get("titulo"),
+    parametros.get("texto"),
+    parametros.get("enlace")
+].filter(Boolean).join("\n");
+
+// Limpiar la dirección para que al recargar no se vuelva a procesar el mismo texto
+if (textoCompartido) {
+    history.replaceState(null, "", location.pathname);
+}
+
+
 // ===== Elementos del HTML =====
 document.getElementById("anio").textContent = new Date().getFullYear();
 
@@ -316,6 +332,9 @@ async function revisarUsuario(usuario) {
     escucharFamilia();
     escucharTareas();
     escucharSugerencias();
+
+    // 5. Si la app se abrió desde "Compartir", procesar ese texto
+    procesarTextoCompartido();
 }
 
 // Cambia la clase del <body>: "cargando", "sin-sesion" o "con-sesion"
@@ -570,7 +589,7 @@ async function descartarSugerencia(id) {
 }
 
 
-// ===== Pegar mensaje (usa el analizador) =====
+// ===== Pegar mensaje y compartir (usan el analizador) =====
 
 btnPegar.addEventListener("click", function () {
     formPegar.reset();
@@ -597,6 +616,31 @@ formPegar.addEventListener("submit", function (e) {
     sugerenciaEnRevision = null;
     llenarFormularioCon(resultado);
 });
+
+// Procesa el texto que llegó desde el menú "Compartir" de Android
+function procesarTextoCompartido() {
+    if (!textoCompartido) {
+        return;
+    }
+
+    // Usarlo una sola vez
+    const texto = textoCompartido;
+    textoCompartido = "";
+
+    // En modo niño no se pueden agregar tareas
+    if (modoNino) {
+        mostrarToast("Para agregar tareas, sal del modo niño 🔒");
+        return;
+    }
+
+    sugerenciaEnRevision = null;
+    const resultado = analizarMensaje(texto);
+    llenarFormularioCon(resultado);
+
+    avisoAnalisis.textContent = resultado.fecha
+        ? "📲 Mensaje compartido. Revisa los datos y elige para quién es."
+        : "📲 Mensaje compartido. ⚠️ No encontré la fecha: elígela tú.";
+}
 
 // Abre el formulario de tareas con los datos detectados
 function llenarFormularioCon(resultado) {

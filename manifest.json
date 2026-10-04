@@ -1,7 +1,7 @@
 {
+    "id": "./",
     "name": "Tareas de mi hijo",
     "short_name": "Tareas",
-    "id": "./",
     "description": "Control de deberes, compras y avisos escolares",
     "start_url": "./",
     "scope": "./",
@@ -20,5 +20,14 @@
             "sizes": "512x512",
             "type": "image/png"
         }
-    ]
+    ],
+    "share_target": {
+        "action": "./index.html",
+        "method": "GET",
+        "params": {
+            "title": "titulo",
+            "text": "texto",
+            "url": "enlace"
+        }
+    }
 }
