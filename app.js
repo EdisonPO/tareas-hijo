@@ -1649,9 +1649,6 @@ async function revisarRecordatorios(forzar = false) {
     localStorage.setItem("ultimoAviso", hoy);
 }
 
-    localStorage.setItem("ultimoAviso", hoy);
-}
-
 btnNotificaciones.addEventListener("click", async function () {
     await Notification.requestPermission();
     actualizarBotonNotificaciones();
