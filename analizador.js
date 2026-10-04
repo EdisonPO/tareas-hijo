@@ -1,6 +1,6 @@
-// ===== Analizador de mensajes (copia del analizador.js de la app) =====
-// Apps Script no puede importar archivos de tu repositorio de GitHub,
-// por eso esta es una copia. Si mejoras uno, mejora también el otro.
+// ===== Analizador de mensajes =====
+// Lee el texto de un aviso (WhatsApp, correo, plataforma del colegio)
+// e intenta adivinar: descripción, tipo, materia y fecha.
 
 const MESES = {
     enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5,
@@ -20,6 +20,7 @@ const MATERIAS = [
     { valor: "ingles", patron: /ingles|english/ }
 ];
 
+// Señales de que una oración dice "lo que hay que hacer", y cuántos puntos suman
 const SENALES = [
     { patron: /consiste en/, puntos: 5 },
     { patron: /\b(deberan|deben|debe|debera|tienen que|favor de)\b/, puntos: 3 },
@@ -28,15 +29,19 @@ const SENALES = [
     { patron: /\b(manana|lunes|martes|miercoles|jueves|viernes|\d{1,2} de [a-z]+)\b/, puntos: 1 }
 ];
 
+// Señales de que una oración NO es la instrucción principal
 const RUIDO = [
     { patron: /\b(agradezco|gracias|saludos|atencion|cordialmente|bendiciones)\b/, puntos: -4 },
     { patron: /\b(copiaron|se trabajo|fue trabajado)\b/, puntos: -1 }
 ];
 
-function analizarMensaje(texto, asunto = "", hoy = new Date()) {
+
+// ===== Función principal (la única que usa el resto de la app) =====
+export function analizarMensaje(texto, asunto = "", hoy = new Date()) {
     const limpio = quitarEncabezadosWhatsApp(texto);
     const todo = `${asunto}\n${limpio}`;
 
+    // La oración que mejor describe lo que hay que hacer
     const principal = elegirOracionPrincipal(limpio);
     const enfoque = principal ? `${asunto}\n${principal.texto}` : todo;
 
@@ -53,6 +58,10 @@ function analizarMensaje(texto, asunto = "", hoy = new Date()) {
     };
 }
 
+
+// ===== Elegir la oración principal =====
+
+// Da puntos a cada oración y devuelve la mejor: { texto, puntos }, o null
 function elegirOracionPrincipal(texto) {
     let mejor = null;
 
@@ -60,6 +69,7 @@ function elegirOracionPrincipal(texto) {
         const limpia = limpiarFrase(oracion);
         const t = normalizar(limpia);
 
+        // Ignorar frases muy cortas o que solo son saludos
         if (limpia.length < 15 || esSaludo(t)) {
             return;
         }
@@ -79,6 +89,7 @@ function elegirOracionPrincipal(texto) {
     return mejor;
 }
 
+// Separa el texto por líneas y luego por puntos (., ! o ?)
 function dividirEnOraciones(texto) {
     return texto
         .split(/\r?\n/)
@@ -87,6 +98,7 @@ function dividirEnOraciones(texto) {
         .filter(Boolean);
 }
 
+// Quita las frases de cortesía del inicio: "Estimados padres", "Les informo que"...
 function limpiarFrase(frase) {
     let resultado = frase.replace(/^([•·\-*]|\d+[.)])\s*/, "").trim();
 
@@ -97,6 +109,7 @@ function limpiarFrase(frase) {
         /^(les|le|se les)\s+(informo|informamos|comunico|comunicamos|recuerdo|recordamos|solicito|pido|indico)\s+(que\s+)?/i
     ];
 
+    // Repetir mientras se siga quitando algo ("Finalmente, les recuerdo que...")
     let cambio = true;
     while (cambio) {
         cambio = false;
@@ -116,20 +129,29 @@ function esSaludo(textoNormalizado) {
     return /^(hola|estimad|buen[oa]s|saludos|reciban|querid|cordial|atentamente|notificaci|agradezco)/.test(textoNormalizado);
 }
 
+// Convierte la oración principal en una descripción clara
 function redactarDescripcion(frase) {
     let texto = frase;
 
+    // "La actividad consiste en descomponer..." → "descomponer..."
     const consiste = texto.match(/consiste en\s+(.+)/i);
     if (consiste) {
         texto = consiste[1];
     }
 
+    // Quitar complementos que no aportan: ", contenido que fue trabajado en clase"
     texto = texto.replace(/,\s*(contenido|el cual|la cual|lo cual|que fue|mismo que|misma que)\b.*$/i, "");
+
+    // Quitar puntuación del final
     texto = texto.replace(/[.:;,\s]+$/, "").trim();
 
     return recortar(comoOracion(capitalizar(texto)), 160);
 }
 
+
+// ===== Detectores =====
+
+// "deber", "comprar" o "evento" según las palabras
 function detectarTipo(texto) {
     const t = normalizar(texto);
 
@@ -142,12 +164,14 @@ function detectarTipo(texto) {
     return "deber";
 }
 
+// La primera materia que aparezca en el texto, o "otra"
 function detectarMateria(texto) {
     const t = normalizar(texto);
     const encontrada = MATERIAS.find(m => m.patron.test(t));
     return encontrada ? encontrada.valor : "otra";
 }
 
+// Busca una fecha en varios formatos, de la más precisa a la menos precisa
 function detectarFecha(texto, hoy) {
     if (!texto) {
         return "";
@@ -156,12 +180,14 @@ function detectarFecha(texto, hoy) {
     const t = normalizar(texto);
     const base = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
 
+    // 1. "2 de octubre" o "2 de octubre de 2026"
     const nombresMeses = Object.keys(MESES).join("|");
     let m = t.match(new RegExp(`\\b(\\d{1,2})\\s+de\\s+(${nombresMeses})(?:\\s+(?:de|del)\\s+(\\d{4}))?`));
     if (m) {
         return armarFecha(base, Number(m[1]), MESES[m[2]], m[3] ? Number(m[3]) : null);
     }
 
+    // 2. "02/10", "2-10" o "02/10/2026"
     m = t.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
     if (m) {
         let anio = m[3] ? Number(m[3]) : null;
@@ -171,10 +197,12 @@ function detectarFecha(texto, hoy) {
         return armarFecha(base, Number(m[1]), Number(m[2]) - 1, anio);
     }
 
+    // 3. "pasado mañana"
     if (/pasado\s+manana/.test(t)) {
         return aTextoFecha(sumarDias(base, 2));
     }
 
+    // 4. Día de la semana: el próximo lunes, martes, etc.
     m = t.match(/\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/);
     if (m) {
         let dias = (DIAS_SEMANA[m[1]] - base.getDay() + 7) % 7;
@@ -184,10 +212,12 @@ function detectarFecha(texto, hoy) {
         return aTextoFecha(sumarDias(base, dias));
     }
 
+    // 5. "mañana" (pero no "en la mañana" ni "por la mañana")
     if (/(?<!la\s)\bmanana\b/.test(t)) {
         return aTextoFecha(sumarDias(base, 1));
     }
 
+    // 6. "hoy"
     if (/\bhoy\b/.test(t)) {
         return aTextoFecha(base);
     }
@@ -195,12 +225,14 @@ function detectarFecha(texto, hoy) {
     return "";
 }
 
+// Arma la descripción: lista de materiales, oración principal, asunto o primera línea útil
 function detectarDescripcion(texto, asunto, tipo, principal) {
     const lineas = texto
         .split(/\r?\n/)
         .map(linea => linea.trim())
         .filter(Boolean);
 
+    // 1. Si hay que comprar y hay viñetas, listar los materiales
     const marcaVineta = /^([•·\-*]|\d+[.)])\s*/;
     const vinetas = lineas
         .filter(linea => marcaVineta.test(linea))
@@ -211,23 +243,31 @@ function detectarDescripcion(texto, asunto, tipo, principal) {
         return recortar(`Traer: ${vinetas.join(", ")}`, 160);
     }
 
+    // 2. Una oración principal clara (con buen puntaje)
     if (principal && principal.puntos >= 4) {
         return redactarDescripcion(principal.texto);
     }
 
+    // 3. El asunto del correo sin "Notificación:", "RE:" o "FW:"
     const asuntoLimpio = asunto.replace(/^\s*(notificaci[oó]n|re|fwd?)\s*:\s*/i, "").trim();
     if (asuntoLimpio) {
         return recortar(comoOracion(asuntoLimpio), 100);
     }
 
+    // 4. Una oración principal con poco puntaje, mejor que nada
     if (principal) {
         return redactarDescripcion(principal.texto);
     }
 
+    // 5. La primera línea que no sea un saludo
     const primera = lineas.map(limpiarFrase).find(linea => linea && !esSaludo(normalizar(linea)));
     return primera ? recortar(comoOracion(primera), 100) : "";
 }
 
+
+// ===== Funciones de ayuda =====
+
+// Quita tildes y pasa a minúsculas: "Matemática" → "matematica"
 function normalizar(texto) {
     return texto
         .toLowerCase()
@@ -235,10 +275,12 @@ function normalizar(texto) {
         .replace(/[\u0300-\u036f]/g, "");
 }
 
+// Al copiar varios mensajes de WhatsApp aparece "[2/10/26, 19:06] Profe Luz: ..."
 function quitarEncabezadosWhatsApp(texto) {
     return texto.replace(/^\[[^\]]*\]\s*[^:\n]{1,40}:\s*/gm, "");
 }
 
+// Crea la fecha; si no dice el año y ya pasó hace más de 2 meses, usa el próximo año
 function armarFecha(base, dia, mes, anio) {
     if (mes < 0 || mes > 11 || dia < 1 || dia > 31) {
         return "";
@@ -258,6 +300,7 @@ function sumarDias(fecha, dias) {
     return new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate() + dias);
 }
 
+// Date → "aaaa-mm-dd" (el formato que usa <input type="date">)
 function aTextoFecha(fecha) {
     const anio = fecha.getFullYear();
     const mes = String(fecha.getMonth() + 1).padStart(2, "0");
@@ -265,6 +308,7 @@ function aTextoFecha(fecha) {
     return `${anio}-${mes}-${dia}`;
 }
 
+// "MATERIALES PARA MATEMÁTICA" → "Materiales para matemática"
 function comoOracion(texto) {
     if (texto === texto.toUpperCase()) {
         const minusculas = texto.toLowerCase();
@@ -273,6 +317,7 @@ function comoOracion(texto) {
     return texto;
 }
 
+// "descomponer los números" → "Descomponer los números"
 function capitalizar(texto) {
     return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
