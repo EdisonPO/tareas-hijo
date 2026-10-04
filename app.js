@@ -61,6 +61,7 @@ let familia = { miembros: [], hijos: [] };
 let filtroActual = "todas";      // "todas", "pendientes" o "realizadas"
 let filtroHijo = "todos";        // "todos" o el id de un hijo
 let modoNino = localStorage.getItem("modoNino");   // id del hijo en modo niño, o null
+let tareaEnEdicion = null;       // id de la tarea que se está editando (null = tarea nueva)
 let sugerenciaEnRevision = null; // id de la sugerencia de Gmail que se está convirtiendo en tarea
 let avisosPendientes = [];       // avisos encontrados en un mensaje con varios avisos
 let avisoEnRevision = null;      // el aviso de esa lista que se está revisando en el formulario
@@ -110,6 +111,8 @@ const btnSalir = document.getElementById("btn-salir");
 
 // Tareas
 const formulario = document.getElementById("form-tarea");
+const tituloForm = document.getElementById("titulo-form");
+const btnGuardarTarea = document.getElementById("btn-guardar-tarea");
 const listaTareas = document.getElementById("lista-tareas");
 const botonesFiltro = document.querySelectorAll("[data-filtro]");
 const filtroHijos = document.getElementById("filtro-hijos");
@@ -490,6 +493,7 @@ function detenerEscucha() {
     sugerencias = [];
     avisosPendientes = [];
     avisoEnRevision = null;
+    tareaEnEdicion = null;
     familia = { miembros: [], hijos: [] };
     filtroHijo = "todos";
 
@@ -1230,29 +1234,45 @@ async function subirTareasLocales() {
     localStorage.removeItem("tareas");
 }
 
-// Agregar una tarea nueva
+// Guardar el formulario: agrega una tarea nueva o guarda los cambios de una existente
 formulario.addEventListener("submit", async function (e) {
     e.preventDefault();
 
     // Recordar de dónde viene esta tarea (antes de cerrar el formulario)
+    const idEdicion = tareaEnEdicion;
     const idSugerencia = sugerenciaEnRevision;
     const aviso = avisoEnRevision;
 
-    const nueva = {
+    // Los datos que se pueden escribir en el formulario
+    const datos = {
         descripcion: document.getElementById("descripcion").value.trim(),
         materia: document.getElementById("materia").value,
         tipo: document.getElementById("tipo").value,
         fecha: document.getElementById("fecha").value,
-        hijoId: selectHijo.value,
-        realizada: false,
-        creadoPor: auth.currentUser.email,
-        creadoEn: serverTimestamp()
+        hijoId: selectHijo.value
     };
 
     cerrarFormulario();
 
     try {
-        const nuevaTarea = await addDoc(refTareas, nueva);
+        // A) Editar una tarea existente
+        if (idEdicion) {
+            await updateDoc(doc(refTareas, idEdicion), {
+                ...datos,
+                editadoPor: auth.currentUser.email,
+                editadoEn: serverTimestamp()
+            });
+            mostrarToast("✏️ Tarea actualizada");
+            return;
+        }
+
+        // B) Agregar una tarea nueva
+        const nuevaTarea = await addDoc(refTareas, {
+            ...datos,
+            realizada: false,
+            creadoPor: auth.currentUser.email,
+            creadoEn: serverTimestamp()
+        });
 
         // Si venía de un aviso de Gmail, marcarlo como aceptado
         if (idSugerencia) {
@@ -1271,9 +1291,35 @@ formulario.addEventListener("submit", async function (e) {
         }
     } catch (error) {
         console.error(error);
-        alert("No se pudo guardar la tarea. Revisa tu conexión.");
+        alert(idEdicion
+            ? "No se pudieron guardar los cambios. Es posible que la tarea haya sido eliminada."
+            : "No se pudo guardar la tarea. Revisa tu conexión.");
     }
 });
+
+// Abre el formulario con los datos de una tarea para editarla
+function editarTarea(tarea) {
+    sugerenciaEnRevision = null;
+    avisoEnRevision = null;
+
+    abrirFormulario();
+
+    // Cambiar el formulario a "modo edición"
+    tareaEnEdicion = tarea.id;
+    tituloForm.textContent = "Editar tarea";
+    btnGuardarTarea.textContent = "Guardar cambios";
+
+    document.getElementById("descripcion").value = tarea.descripcion;
+    document.getElementById("materia").value = tarea.materia;
+    document.getElementById("tipo").value = tarea.tipo;
+    document.getElementById("fecha").value = tarea.fecha;
+    selectHijo.value = buscarHijo(tarea.hijoId) ? tarea.hijoId : "";
+
+    avisoAnalisis.textContent = "✏️ Estás editando una tarea. Cambia lo que necesites y presiona Guardar cambios.";
+
+    // Llevar la pantalla hasta el formulario (útil en el celular)
+    formulario.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 // Cambia una tarea de pendiente a realizada, o al revés
 async function cambiarEstado(id) {
@@ -1299,6 +1345,12 @@ async function eliminarTarea(id) {
     if (!confirm("¿Seguro que quieres eliminar esta tarea?")) {
         return;
     }
+
+    // Si justo se estaba editando esa tarea, cerrar el formulario
+    if (tareaEnEdicion === id) {
+        cerrarFormulario();
+    }
+
     try {
         await deleteDoc(doc(refTareas, id));
     } catch (error) {
@@ -1310,10 +1362,16 @@ async function eliminarTarea(id) {
 
 // ===== Formulario y filtros =====
 
+// Abre el formulario listo para una tarea nueva
 function abrirFormulario() {
     formulario.classList.remove("oculto");
     btnNueva.classList.add("oculto");
     avisoAnalisis.textContent = "";
+
+    // Por defecto, el formulario es para agregar (no para editar)
+    tareaEnEdicion = null;
+    tituloForm.textContent = "Registrar tarea";
+    btnGuardarTarea.textContent = "Agregar";
 
     // Si estás viendo las tareas de un hijo, elegirlo automáticamente
     selectHijo.value = filtroHijo !== "todos" ? filtroHijo : "";
@@ -1328,6 +1386,9 @@ function cerrarFormulario() {
     avisoAnalisis.textContent = "";
     sugerenciaEnRevision = null;
     avisoEnRevision = null;
+    tareaEnEdicion = null;
+    tituloForm.textContent = "Registrar tarea";
+    btnGuardarTarea.textContent = "Agregar";
 }
 
 btnNueva.addEventListener("click", function () {
@@ -1498,11 +1559,25 @@ function mostrarTareas() {
 
         info.append(descripcion, etiquetas);
 
+        // Botones de editar y eliminar
+        const acciones = document.createElement("div");
+        acciones.className = "acciones-tarea";
+
+        const botonEditar = document.createElement("button");
+        botonEditar.type = "button";
+        botonEditar.className = "btn-editar";
+        botonEditar.textContent = "✏️ Editar";
+        botonEditar.addEventListener("click", () => editarTarea(tarea));
+
         const botonEliminar = document.createElement("button");
+        botonEliminar.type = "button";
+        botonEliminar.className = "btn-eliminar";
         botonEliminar.textContent = "Eliminar";
         botonEliminar.addEventListener("click", () => eliminarTarea(tarea.id));
 
-        li.append(casilla, info, botonEliminar);
+        acciones.append(botonEditar, botonEliminar);
+
+        li.append(casilla, info, acciones);
         listaTareas.appendChild(li);
     });
 

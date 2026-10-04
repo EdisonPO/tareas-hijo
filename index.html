@@ -94,9 +94,9 @@
         <button type="button" id="btn-sugerencias" class="oculto"></button>
 
         <form id="form-tarea" class="oculto">
-            <h3>Registrar tarea</h3>
+            <h3 id="titulo-form">Registrar tarea</h3>
 
-            <!-- Aviso cuando los datos vienen de un mensaje analizado -->
+            <!-- Aviso cuando los datos vienen de un mensaje analizado o se está editando -->
             <p id="aviso-analisis"></p>
 
             <label for="descripcion">Descripción:</label>
@@ -126,7 +126,7 @@
             <input type="date" id="fecha" required>
 
             <div class="botones-form">
-                <button type="submit">Agregar</button>
+                <button type="submit" id="btn-guardar-tarea">Agregar</button>
                 <button type="button" id="btn-cancelar">Cancelar</button>
             </div>
         </form>
@@ -152,7 +152,7 @@
         <p><a href="https://github.com/EdisonPO" target="_blank">Ver en GitHub</a></p>
     </footer>
 
-    <!-- Mensaje flotante de felicitación -->
+    <!-- Mensaje flotante -->
     <div id="toast"></div>
 
     <!-- Ventana "Mi familia" -->

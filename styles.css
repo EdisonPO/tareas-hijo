@@ -1212,3 +1212,25 @@ body.modo-nino #btn-sugerencias {
     opacity: 0.6;
     cursor: wait;
 }
+
+/* ===== Botones de cada tarea: editar y eliminar ===== */
+.acciones-tarea {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+#lista-tareas li .btn-editar {
+    color: var(--morado);
+    border-color: var(--morado);
+}
+
+#lista-tareas li .btn-editar:hover {
+    background-color: var(--morado);
+    color: white;
+}
+
+body.modo-nino .acciones-tarea {
+    display: none;
+}
