@@ -37,6 +37,11 @@ body {
     background: linear-gradient(135deg, #fdf2f8 0%, #ede9fe 50%, #e0f2fe 100%) fixed;
 }
 
+/* Clase para ocultar elementos */
+.oculto {
+    display: none;
+}
+
 /* ===== Encabezado con degradado animado ===== */
 header {
     padding: 28px 20px;
@@ -64,6 +69,43 @@ header h1::before {
     0%   { background-position: 0% 50%; }
     50%  { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
+}
+
+/* ===== Barra de usuario en el header ===== */
+#barra-usuario {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-weight: 700;
+}
+
+#btn-familia,
+#btn-salir {
+    padding: 6px 14px;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 999px;
+    color: white;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+#btn-familia {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+#btn-salir {
+    background: transparent;
+}
+
+#btn-familia:hover,
+#btn-salir:hover {
+    background: white;
+    color: var(--morado);
 }
 
 /* ===== Filtros (nav) ===== */
@@ -95,11 +137,24 @@ nav button:hover {
     transform: translateY(-3px);
 }
 
-/* Filtro seleccionado */
 nav button.activo {
     background: linear-gradient(120deg, var(--morado), var(--rosa));
     color: white;
     box-shadow: 0 6px 16px rgba(236, 72, 153, 0.4);
+}
+
+/* Filtro por hijo */
+#filtro-hijos {
+    margin-top: 10px;
+}
+
+#filtro-hijos:empty {
+    display: none;
+}
+
+.chip-hijo {
+    padding: 6px 14px;
+    font-size: 0.88rem;
 }
 
 /* ===== Tarjetas: section y aside ===== */
@@ -126,7 +181,7 @@ h2 {
     color: transparent;
 }
 
-/* ===== Formulario ===== */
+/* ===== Formularios (estilo general) ===== */
 form {
     display: flex;
     flex-direction: column;
@@ -143,6 +198,8 @@ label {
 
 input[type="text"],
 input[type="date"],
+input[type="email"],
+input[type="password"],
 select {
     width: 100%;
     padding: 12px 14px;
@@ -186,6 +243,76 @@ form button:active {
     transform: scale(0.97);
 }
 
+/* ===== Encabezado de la lista con el botón "+ Nueva tarea" ===== */
+.encabezado-tareas {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.encabezado-tareas h2 {
+    margin-bottom: 0;
+}
+
+#btn-nueva {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: white;
+    cursor: pointer;
+    background: linear-gradient(120deg, var(--morado), var(--rosa));
+    box-shadow: 0 6px 16px rgba(236, 72, 153, 0.35);
+    transition: transform 0.15s;
+}
+
+#btn-nueva:hover {
+    transform: translateY(-2px);
+}
+
+/* ===== Formulario de tareas como recuadro desplegable ===== */
+#form-tarea {
+    padding: 18px;
+    margin-bottom: 20px;
+    border: 2px solid var(--borde);
+    border-radius: 14px;
+    background-color: #faf8ff;
+    animation: aparecer 0.3s ease;
+}
+
+#form-tarea h3 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--morado-oscuro);
+}
+
+.botones-form {
+    display: flex;
+    gap: 10px;
+}
+
+.botones-form button {
+    flex: 1;
+}
+
+#btn-cancelar {
+    background: white;
+    color: var(--texto-suave);
+    border: 2px solid var(--borde);
+    box-shadow: none;
+}
+
+#btn-cancelar:hover {
+    color: var(--rojo);
+    border-color: var(--rojo);
+    box-shadow: none;
+}
+
 /* ===== Lista de tareas ===== */
 #lista-tareas {
     list-style: none;
@@ -211,7 +338,6 @@ form button:active {
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
 
-/* Color según el tipo de tarea */
 #lista-tareas li.tipo-deber {
     border-left-color: var(--azul);
     background-color: #eff6ff;
@@ -227,7 +353,6 @@ form button:active {
     background-color: #ecfdf5;
 }
 
-/* Tarea realizada */
 #lista-tareas li.realizada {
     opacity: 0.55;
     background-color: #f3f4f6;
@@ -238,7 +363,6 @@ form button:active {
     text-decoration: line-through;
 }
 
-/* Mensaje cuando no hay tareas en el filtro */
 #lista-tareas li.vacio {
     justify-content: center;
     border: 2px dashed var(--borde);
@@ -252,7 +376,6 @@ form button:active {
     box-shadow: none;
 }
 
-/* Casilla */
 #lista-tareas input[type="checkbox"] {
     width: 22px;
     height: 22px;
@@ -261,7 +384,6 @@ form button:active {
     accent-color: var(--verde);
 }
 
-/* Información de la tarea */
 .info {
     flex: 1;
     min-width: 0;
@@ -274,7 +396,7 @@ form button:active {
     word-break: break-word;
 }
 
-/* Etiquetas */
+/* Etiquetas de cada tarea */
 .etiquetas {
     display: flex;
     flex-wrap: wrap;
@@ -302,6 +424,12 @@ form button:active {
 #lista-tareas li.tipo-evento .etiqueta-tipo  { background-color: var(--verde); }
 #lista-tareas li.realizada .etiqueta-tipo    { background-color: #9ca3af; }
 
+.etiqueta-hijo {
+    background-color: #fdf2f8;
+    border-color: #fbcfe8;
+    color: #9d174d;
+}
+
 .etiqueta-atrasada {
     color: white;
     border-color: transparent;
@@ -321,7 +449,6 @@ form button:active {
     background-color: #fef3c7;
 }
 
-/* Botón eliminar */
 #lista-tareas li button {
     flex-shrink: 0;
     padding: 6px 12px;
@@ -340,7 +467,6 @@ form button:active {
     color: white;
 }
 
-/* Animaciones */
 @keyframes aparecer {
     from {
         opacity: 0;
@@ -380,7 +506,6 @@ aside span {
     background-color: var(--morado);
 }
 
-/* Un color distinto para cada dato del resumen */
 aside p:nth-of-type(1) { border-left-color: var(--azul); }
 aside p:nth-of-type(1) span { background-color: var(--azul); }
 
@@ -396,7 +521,6 @@ aside p:nth-of-type(4) span { background-color: var(--rojo); }
 aside p:nth-of-type(5) { border-left-color: var(--naranja); }
 aside p:nth-of-type(5) span { background-color: var(--naranja); }
 
-/* Lista de compras como etiquetas */
 #lista-compras {
     list-style: none;
     display: flex;
@@ -417,95 +541,6 @@ aside p:nth-of-type(5) span { background-color: var(--naranja); }
 
 #lista-compras li::before {
     content: "🛒 ";
-}
-
-/* ===== Pie de página ===== */
-footer {
-    text-align: center;
-    color: var(--texto-suave);
-    font-size: 0.9rem;
-    font-weight: 600;
-    padding: 12px;
-}
-
-footer a {
-    color: var(--morado);
-    font-weight: 800;
-}
-
-/* ===== Clase para ocultar elementos ===== */
-.oculto {
-    display: none;
-}
-
-/* ===== Encabezado de la lista con el botón ===== */
-.encabezado-tareas {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
-}
-
-.encabezado-tareas h2 {
-    margin-bottom: 0;
-}
-
-#btn-nueva {
-    padding: 10px 18px;
-    border: none;
-    border-radius: 999px;
-    font-family: inherit;
-    font-size: 0.95rem;
-    font-weight: 800;
-    color: white;
-    cursor: pointer;
-    background: linear-gradient(120deg, var(--morado), var(--rosa));
-    box-shadow: 0 6px 16px rgba(236, 72, 153, 0.35);
-    transition: transform 0.15s;
-}
-
-#btn-nueva:hover {
-    transform: translateY(-2px);
-}
-
-/* ===== Formulario como recuadro desplegable ===== */
-#form-tarea {
-    padding: 18px;
-    margin-bottom: 20px;
-    border: 2px solid var(--borde);
-    border-radius: 14px;
-    background-color: #faf8ff;
-    animation: aparecer 0.3s ease;
-}
-
-#form-tarea h3 {
-    font-size: 1.1rem;
-    font-weight: 800;
-    color: var(--morado-oscuro);
-}
-
-.botones-form {
-    display: flex;
-    gap: 10px;
-}
-
-.botones-form button {
-    flex: 1;
-}
-
-#btn-cancelar {
-    background: white;
-    color: var(--texto-suave);
-    border: 2px solid var(--borde);
-    box-shadow: none;
-}
-
-#btn-cancelar:hover {
-    color: var(--rojo);
-    border-color: var(--rojo);
-    box-shadow: none;
 }
 
 /* ===== Recordatorios ===== */
@@ -541,40 +576,18 @@ footer a {
     display: none;
 }
 
-/* ===== Pantallas grandes (tablet y compu) ===== */
-@media (min-width: 768px) {
-    body {
-        grid-template-columns: 2fr 1fr;
-        grid-template-areas:
-            "header header"
-            "nav    nav"
-            "section aside"
-            "footer footer";
-        align-items: start;
-        padding: 24px;
-    }
-
-    header  { grid-area: header; }
-    nav     { grid-area: nav; }
-    section { grid-area: section; }
-    aside   { grid-area: aside; }
-    footer  { grid-area: footer; }
-
-    nav ul {
-        justify-content: flex-start;
-    }
-
-    header h1 {
-        font-size: 2.3rem;
-    }
+/* ===== Pie de página ===== */
+footer {
+    text-align: center;
+    color: var(--texto-suave);
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 12px;
 }
 
-/* ===== Respeta a quien prefiere menos movimiento ===== */
-@media (prefers-reduced-motion: reduce) {
-    * {
-        animation: none !important;
-        transition: none !important;
-    }
+footer a {
+    color: var(--morado);
+    font-weight: 800;
 }
 
 /* ===== Estados de la app: cargando / sin sesión / con sesión ===== */
@@ -598,50 +611,12 @@ body:not(.con-sesion) #barra-usuario {
     display: none;
 }
 
-/* Sin sesión, todo va en una sola columna */
-body:not(.con-sesion) {
-    grid-template-columns: 1fr;
-    grid-template-areas: none;
-}
-
-body:not(.con-sesion) > * {
-    grid-area: auto;
-}
-
 #pantalla-cargando {
     text-align: center;
     padding: 40px;
     font-size: 1.2rem;
     font-weight: 700;
     color: var(--texto-suave);
-}
-
-/* ===== Barra de usuario en el header ===== */
-#barra-usuario {
-    margin-top: 10px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    font-weight: 700;
-}
-
-#btn-salir {
-    padding: 6px 14px;
-    border: 2px solid rgba(255, 255, 255, 0.8);
-    border-radius: 999px;
-    background: transparent;
-    color: white;
-    font-family: inherit;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.2s, color 0.2s;
-}
-
-#btn-salir:hover {
-    background: white;
-    color: var(--morado);
 }
 
 /* ===== Tarjeta de inicio de sesión ===== */
@@ -659,18 +634,6 @@ body:not(.con-sesion) > * {
     margin-bottom: 18px;
     color: var(--texto-suave);
     font-weight: 600;
-}
-
-#pantalla-login input[type="email"],
-#pantalla-login input[type="password"] {
-    width: 100%;
-    padding: 12px 14px;
-    background-color: #faf8ff;
-    border: 2px solid var(--borde);
-    border-radius: 12px;
-    font-size: 1rem;
-    font-family: inherit;
-    color: var(--texto);
 }
 
 #form-acceso {
@@ -694,6 +657,11 @@ body:not(.con-sesion) > * {
 .btn-google:hover {
     border-color: var(--morado);
     box-shadow: 0 4px 14px rgba(124, 58, 237, 0.15);
+}
+
+.btn-google:disabled {
+    opacity: 0.6;
+    cursor: wait;
 }
 
 .separador {
@@ -741,25 +709,66 @@ body:not(.con-sesion) > * {
     cursor: pointer;
 }
 
-#aviso-login {
+#aviso-login,
+#aviso-familia {
     margin-top: 14px;
     text-align: center;
     font-weight: 700;
 }
 
-#aviso-login:empty {
+#aviso-login:empty,
+#aviso-familia:empty {
     display: none;
 }
 
-#aviso-login.aviso-error {
+.aviso-error {
     color: var(--rojo);
 }
 
-#aviso-login.aviso-ok {
+.aviso-ok {
     color: var(--verde);
 }
 
-.btn-google:disabled {
-    opacity: 0.6;
-    cursor: wait;
+/* ===== Ventana "Mi familia" ===== */
+#dialogo-familia {
+    width: min(520px, 92vw);
+    max-height: 88vh;
+    margin: auto;
+    padding: 24px;
+    border: none;
+    border-top: 6px solid var(--morado);
+    border-radius: var(--radio);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    color: var(--texto);
+    font-family: inherit;
 }
+
+#dialogo-familia::backdrop {
+    background: rgba(31, 27, 58, 0.45);
+    backdrop-filter: blur(3px);
+}
+
+.dialogo-encabezado {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.dialogo-encabezado h2 {
+    margin-bottom: 0;
+}
+
+.btn-cerrar {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background-color: #f3f0ff;
+    color: var(--morado);
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.b

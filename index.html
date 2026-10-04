@@ -17,6 +17,7 @@
         <h1>Tareas de mi hijo</h1>
         <div id="barra-usuario">
             <span id="nombre-usuario"></span>
+            <button type="button" id="btn-familia">👨‍👩‍👧 Mi familia</button>
             <button type="button" id="btn-salir">Cerrar sesión</button>
         </div>
     </header>
@@ -69,6 +70,8 @@
             <li><button data-filtro="pendientes">Pendientes</button></li>
             <li><button data-filtro="realizadas">Realizadas</button></li>
         </ul>
+        <!-- Botones de cada hijo (los crea JavaScript) -->
+        <ul id="filtro-hijos"></ul>
     </nav>
 
     <section>
@@ -82,6 +85,9 @@
 
             <label for="descripcion">Descripción:</label>
             <input type="text" id="descripcion" placeholder="Ej: Traer cartulina azul" required>
+
+            <label for="hijo">¿Para quién?</label>
+            <select id="hijo"></select>
 
             <label for="materia">Materia:</label>
             <select id="materia" required>
@@ -129,6 +135,51 @@
         <p>&copy; <span id="anio"></span> Desarrollado por Edison</p>
         <p><a href="https://github.com/EdisonPO" target="_blank">Ver en GitHub</a></p>
     </footer>
+
+    <!-- Ventana "Mi familia" -->
+    <dialog id="dialogo-familia">
+        <div class="dialogo-encabezado">
+            <h2>Mi familia</h2>
+            <button type="button" id="btn-cerrar-familia" class="btn-cerrar" aria-label="Cerrar">✕</button>
+        </div>
+
+        <h3>Adultos</h3>
+        <p class="texto-ayuda">Pueden iniciar sesión, ver y administrar las tareas.</p>
+        <ul id="lista-adultos" class="lista-familia"></ul>
+
+        <form id="form-adulto">
+            <label for="correo-adulto">Agregar adulto (correo):</label>
+            <input type="email" id="correo-adulto" placeholder="correo@ejemplo.com" required>
+            <button type="submit">Agregar adulto</button>
+        </form>
+
+        <h3>Hijos</h3>
+        <p class="texto-ayuda">No necesitan correo. Sirven para asignar y filtrar las tareas.</p>
+        <ul id="lista-hijos" class="lista-familia"></ul>
+
+        <form id="form-hijo">
+            <label for="nombre-hijo">Nombre:</label>
+            <input type="text" id="nombre-hijo" placeholder="Ej: Mateo" maxlength="20" required>
+
+            <label for="emoji-hijo">Emoji:</label>
+            <select id="emoji-hijo">
+                <option value="🦖">🦖 Dinosaurio</option>
+                <option value="🦄">🦄 Unicornio</option>
+                <option value="🚀">🚀 Cohete</option>
+                <option value="⚽">⚽ Pelota</option>
+                <option value="🎨">🎨 Pintura</option>
+                <option value="🐱">🐱 Gato</option>
+                <option value="🐶">🐶 Perro</option>
+                <option value="🦁">🦁 León</option>
+                <option value="🐼">🐼 Panda</option>
+                <option value="🌟">🌟 Estrella</option>
+            </select>
+
+            <button type="submit">Agregar hijo</button>
+        </form>
+
+        <p id="aviso-familia"></p>
+    </dialog>
 
     <script type="module" src="app.js"></script>
 </body>

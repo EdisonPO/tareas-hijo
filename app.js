@@ -20,7 +20,9 @@ import {
     updateDoc,
     deleteDoc,
     onSnapshot,
-    serverTimestamp
+    serverTimestamp,
+    arrayUnion,
+    arrayRemove
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // Configuración de tu proyecto de Firebase
@@ -48,9 +50,12 @@ const refTareas = collection(db, "familias", FAMILIA_ID, "tareas");
 
 // ===== Estado de la app =====
 let tareas = [];
-let filtroActual = "todas";
-let dejarDeEscuchar = null;   // función para detener la escucha en tiempo real
-let modoRegistro = false;     // false = iniciar sesión, true = crear cuenta
+let familia = { miembros: [], hijos: [] };
+let filtroActual = "todas";      // "todas", "pendientes" o "realizadas"
+let filtroHijo = "todos";        // "todos" o el id de un hijo
+let dejarDeEscucharTareas = null;
+let dejarDeEscucharFamilia = null;
+let modoRegistro = false;        // false = iniciar sesión, true = crear cuenta
 
 
 // ===== Elementos del HTML =====
@@ -77,9 +82,24 @@ const btnSalir = document.getElementById("btn-salir");
 // Tareas
 const formulario = document.getElementById("form-tarea");
 const listaTareas = document.getElementById("lista-tareas");
-const botonesFiltro = document.querySelectorAll("nav button");
+const botonesFiltro = document.querySelectorAll("[data-filtro]");
+const filtroHijos = document.getElementById("filtro-hijos");
+const selectHijo = document.getElementById("hijo");
 const btnNueva = document.getElementById("btn-nueva");
 const btnCancelar = document.getElementById("btn-cancelar");
+
+// Mi familia
+const btnFamilia = document.getElementById("btn-familia");
+const dialogoFamilia = document.getElementById("dialogo-familia");
+const btnCerrarFamilia = document.getElementById("btn-cerrar-familia");
+const listaAdultos = document.getElementById("lista-adultos");
+const listaHijos = document.getElementById("lista-hijos");
+const formAdulto = document.getElementById("form-adulto");
+const inputCorreoAdulto = document.getElementById("correo-adulto");
+const formHijo = document.getElementById("form-hijo");
+const inputNombreHijo = document.getElementById("nombre-hijo");
+const selectEmojiHijo = document.getElementById("emoji-hijo");
+const avisoFamilia = document.getElementById("aviso-familia");
 
 // Recordatorios
 const btnNotificaciones = document.getElementById("btn-notificaciones");
@@ -243,6 +263,7 @@ async function revisarUsuario(usuario) {
     nombreUsuario.textContent = `👋 ${usuario.displayName || usuario.email}`;
     mostrarPantalla("con-sesion");
     await subirTareasLocales();
+    escucharFamilia();
     escucharTareas();
 }
 
@@ -296,13 +317,38 @@ function traducirError(error) {
 }
 
 
-// ===== Tareas en la nube =====
+// ===== Escuchar la nube en tiempo real =====
 
-// Escucha la colección de tareas en tiempo real
+// Escucha el documento de la familia (adultos e hijos)
+function escucharFamilia() {
+    dejarDeEscucharFamilia = onSnapshot(
+        refFamilia,
+        function (resultado) {
+            const datos = resultado.data() || {};
+            familia = {
+                miembros: datos.miembros || [],
+                hijos: datos.hijos || []
+            };
+
+            // Si el hijo que estaba filtrado fue eliminado, volver a "todos"
+            if (filtroHijo !== "todos" && !buscarHijo(filtroHijo)) {
+                filtroHijo = "todos";
+            }
+
+            dibujarFamilia();
+            dibujarFiltroHijos();
+            llenarSelectHijos();
+            mostrarTareas();
+        },
+        manejarErrorEscucha
+    );
+}
+
+// Escucha la colección de tareas
 function escucharTareas() {
     let primeraVez = true;
 
-    dejarDeEscuchar = onSnapshot(
+    dejarDeEscucharTareas = onSnapshot(
         refTareas,
         function (resultado) {
             tareas = resultado.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -313,20 +359,252 @@ function escucharTareas() {
                 revisarRecordatorios();
             }
         },
-        function (error) {
-            console.error("Error al escuchar las tareas:", error);
-        }
+        manejarErrorEscucha
     );
+}
+
+// Si alguien te quita de la familia mientras usas la app, volver a revisar tu acceso
+function manejarErrorEscucha(error) {
+    console.error("Error al escuchar datos:", error);
+    if (error.code === "permission-denied") {
+        revisarUsuario(auth.currentUser);
+    }
 }
 
 // Deja de escuchar (por ejemplo, al cerrar sesión)
 function detenerEscucha() {
-    if (dejarDeEscuchar) {
-        dejarDeEscuchar();
-        dejarDeEscuchar = null;
+    if (dejarDeEscucharTareas) {
+        dejarDeEscucharTareas();
+        dejarDeEscucharTareas = null;
+    }
+    if (dejarDeEscucharFamilia) {
+        dejarDeEscucharFamilia();
+        dejarDeEscucharFamilia = null;
     }
     tareas = [];
+    familia = { miembros: [], hijos: [] };
+    filtroHijo = "todos";
+    if (dialogoFamilia.open) {
+        dialogoFamilia.close();
+    }
 }
+
+
+// ===== Mi familia =====
+
+// Abrir y cerrar la ventana
+btnFamilia.addEventListener("click", function () {
+    limpiarAvisoFamilia();
+    dialogoFamilia.showModal();
+});
+
+btnCerrarFamilia.addEventListener("click", () => dialogoFamilia.close());
+
+// Agregar un adulto por correo
+formAdulto.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    limpiarAvisoFamilia();
+
+    const correo = inputCorreoAdulto.value.trim().toLowerCase();
+
+    if (familia.miembros.includes(correo)) {
+        mostrarAvisoFamilia("Ese correo ya está en la familia.", true);
+        return;
+    }
+
+    try {
+        await updateDoc(refFamilia, { miembros: arrayUnion(correo) });
+        formAdulto.reset();
+        mostrarAvisoFamilia(`Listo. ${correo} ya puede iniciar sesión en la app.`, false);
+    } catch (error) {
+        console.error(error);
+        mostrarAvisoFamilia("No se pudo agregar el adulto. Revisa tu conexión.", true);
+    }
+});
+
+// Quitar un adulto
+async function quitarAdulto(correo) {
+    if (!confirm(`¿Quitar a ${correo} de la familia? Ya no podrá ver las tareas.`)) {
+        return;
+    }
+    limpiarAvisoFamilia();
+
+    try {
+        await updateDoc(refFamilia, { miembros: arrayRemove(correo) });
+        mostrarAvisoFamilia(`${correo} fue quitado de la familia.`, false);
+    } catch (error) {
+        console.error(error);
+        mostrarAvisoFamilia("No se pudo quitar al adulto.", true);
+    }
+}
+
+// Agregar un hijo
+formHijo.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    limpiarAvisoFamilia();
+
+    const nombre = inputNombreHijo.value.trim();
+    const existe = familia.hijos.some(h => h.nombre.toLowerCase() === nombre.toLowerCase());
+
+    if (existe) {
+        mostrarAvisoFamilia(`Ya existe un hijo llamado ${nombre}.`, true);
+        return;
+    }
+
+    const nuevoHijo = {
+        id: `h${Date.now()}`,
+        nombre: nombre,
+        emoji: selectEmojiHijo.value
+    };
+
+    try {
+        await updateDoc(refFamilia, { hijos: arrayUnion(nuevoHijo) });
+        formHijo.reset();
+        mostrarAvisoFamilia(`${nuevoHijo.emoji} ${nombre} fue agregado.`, false);
+    } catch (error) {
+        console.error(error);
+        mostrarAvisoFamilia("No se pudo agregar al hijo.", true);
+    }
+});
+
+// Quitar un hijo (sus tareas no se borran, quedan sin asignar)
+async function quitarHijo(hijo) {
+    if (!confirm(`¿Quitar a ${hijo.nombre}? Sus tareas no se borrarán, pero quedarán sin asignar.`)) {
+        return;
+    }
+    limpiarAvisoFamilia();
+
+    try {
+        await updateDoc(refFamilia, { hijos: arrayRemove(hijo) });
+        mostrarAvisoFamilia(`${hijo.nombre} fue quitado.`, false);
+    } catch (error) {
+        console.error(error);
+        mostrarAvisoFamilia("No se pudo quitar al hijo.", true);
+    }
+}
+
+// Dibuja las listas de adultos e hijos dentro de la ventana
+function dibujarFamilia() {
+    const miCorreo = auth.currentUser ? auth.currentUser.email : "";
+
+    // Adultos
+    listaAdultos.innerHTML = "";
+    familia.miembros.forEach(function (correo) {
+        const li = document.createElement("li");
+        const texto = document.createElement("span");
+        texto.textContent = correo === miCorreo ? `${correo} (tú)` : correo;
+        li.appendChild(texto);
+
+        // No mostrar "Quitar" en tu propio correo
+        if (correo !== miCorreo) {
+            const boton = document.createElement("button");
+            boton.type = "button";
+            boton.className = "btn-quitar";
+            boton.textContent = "Quitar";
+            boton.addEventListener("click", () => quitarAdulto(correo));
+            li.appendChild(boton);
+        }
+
+        listaAdultos.appendChild(li);
+    });
+
+    // Hijos
+    listaHijos.innerHTML = "";
+
+    if (familia.hijos.length === 0) {
+        const vacio = document.createElement("li");
+        vacio.className = "vacio-familia";
+        vacio.textContent = "Aún no hay hijos registrados";
+        listaHijos.appendChild(vacio);
+    }
+
+    familia.hijos.forEach(function (hijo) {
+        const li = document.createElement("li");
+        const texto = document.createElement("span");
+        texto.textContent = `${hijo.emoji} ${hijo.nombre}`;
+
+        const boton = document.createElement("button");
+        boton.type = "button";
+        boton.className = "btn-quitar";
+        boton.textContent = "Quitar";
+        boton.addEventListener("click", () => quitarHijo(hijo));
+
+        li.append(texto, boton);
+        listaHijos.appendChild(li);
+    });
+}
+
+// Dibuja los botones de filtro por hijo
+function dibujarFiltroHijos() {
+    filtroHijos.innerHTML = "";
+
+    if (familia.hijos.length === 0) {
+        return;
+    }
+
+    const opciones = [{ id: "todos", nombre: "Todos", emoji: "👨‍👩‍👧" }, ...familia.hijos];
+
+    opciones.forEach(function (hijo) {
+        const li = document.createElement("li");
+        const boton = document.createElement("button");
+        boton.type = "button";
+        boton.className = "chip-hijo";
+        boton.textContent = `${hijo.emoji} ${hijo.nombre}`;
+
+        if (hijo.id === filtroHijo) {
+            boton.classList.add("activo");
+        }
+
+        boton.addEventListener("click", function () {
+            filtroHijo = hijo.id;
+            dibujarFiltroHijos();
+            mostrarTareas();
+        });
+
+        li.appendChild(boton);
+        filtroHijos.appendChild(li);
+    });
+}
+
+// Llena el campo "¿Para quién?" del formulario de tareas
+function llenarSelectHijos() {
+    const seleccionAnterior = selectHijo.value;
+    selectHijo.innerHTML = "";
+
+    const opcionFamilia = document.createElement("option");
+    opcionFamilia.value = "";
+    opcionFamilia.textContent = "👨‍👩‍👧 Toda la familia";
+    selectHijo.appendChild(opcionFamilia);
+
+    familia.hijos.forEach(function (hijo) {
+        const opcion = document.createElement("option");
+        opcion.value = hijo.id;
+        opcion.textContent = `${hijo.emoji} ${hijo.nombre}`;
+        selectHijo.appendChild(opcion);
+    });
+
+    // Mantener lo que estaba elegido, si todavía existe
+    if (seleccionAnterior === "" || buscarHijo(seleccionAnterior)) {
+        selectHijo.value = seleccionAnterior;
+    }
+}
+
+function buscarHijo(id) {
+    return familia.hijos.find(h => h.id === id);
+}
+
+function mostrarAvisoFamilia(texto, esError) {
+    avisoFamilia.textContent = texto;
+    avisoFamilia.className = esError ? "aviso-error" : "aviso-ok";
+}
+
+function limpiarAvisoFamilia() {
+    avisoFamilia.textContent = "";
+    avisoFamilia.className = "";
+}
+
+
+// ===== Acciones sobre las tareas =====
 
 // Si había tareas en localStorage (versión anterior), ofrecer subirlas
 async function subirTareasLocales() {
@@ -349,6 +627,7 @@ async function subirTareasLocales() {
             tipo: t.tipo,
             fecha: t.fecha,
             realizada: t.realizada,
+            hijoId: "",
             creadoPor: auth.currentUser.email,
             creadoEn: serverTimestamp()
         });
@@ -365,6 +644,7 @@ formulario.addEventListener("submit", async function (e) {
         materia: document.getElementById("materia").value,
         tipo: document.getElementById("tipo").value,
         fecha: document.getElementById("fecha").value,
+        hijoId: selectHijo.value,
         realizada: false,
         creadoPor: auth.currentUser.email,
         creadoEn: serverTimestamp()
@@ -410,6 +690,10 @@ async function eliminarTarea(id) {
 function abrirFormulario() {
     formulario.classList.remove("oculto");
     btnNueva.classList.add("oculto");
+
+    // Si estás viendo las tareas de un hijo, elegirlo automáticamente
+    selectHijo.value = filtroHijo !== "todos" ? filtroHijo : "";
+
     document.getElementById("descripcion").focus();
 }
 
@@ -462,14 +746,14 @@ function crearEtiqueta(texto, clase) {
 // ===== Dibujar en la página =====
 
 // Actualiza los números y la lista de compras del aside
-function actualizarResumen() {
+function actualizarResumen(lista) {
     const hoy = obtenerHoy();
 
-    const total = tareas.length;
-    const pendientes = tareas.filter(t => !t.realizada).length;
-    const realizadas = tareas.filter(t => t.realizada).length;
-    const atrasadas = tareas.filter(t => !t.realizada && t.fecha < hoy).length;
-    const comprasPendientes = tareas.filter(t => !t.realizada && t.tipo === "comprar");
+    const total = lista.length;
+    const pendientes = lista.filter(t => !t.realizada).length;
+    const realizadas = lista.filter(t => t.realizada).length;
+    const atrasadas = lista.filter(t => !t.realizada && t.fecha < hoy).length;
+    const comprasPendientes = lista.filter(t => !t.realizada && t.tipo === "comprar");
 
     document.getElementById("total-tareas").textContent = total;
     document.getElementById("tareas-pendientes").textContent = pendientes;
@@ -487,21 +771,28 @@ function actualizarResumen() {
     });
 }
 
-// Dibuja las tareas según el filtro, ordenadas por urgencia
+// Dibuja las tareas según los filtros, ordenadas por urgencia
 function mostrarTareas() {
     listaTareas.innerHTML = "";
 
     const hoy = obtenerHoy();
     const manana = obtenerHoy(1);
 
-    let tareasVisibles = tareas;
+    // 1. Filtrar por hijo
+    const tareasDelHijo = filtroHijo === "todos"
+        ? tareas
+        : tareas.filter(t => t.hijoId === filtroHijo);
+
+    // 2. Filtrar por estado
+    let tareasVisibles = tareasDelHijo;
 
     if (filtroActual === "pendientes") {
-        tareasVisibles = tareas.filter(t => !t.realizada);
+        tareasVisibles = tareasDelHijo.filter(t => !t.realizada);
     } else if (filtroActual === "realizadas") {
-        tareasVisibles = tareas.filter(t => t.realizada);
+        tareasVisibles = tareasDelHijo.filter(t => t.realizada);
     }
 
+    // 3. Ordenar: primero las pendientes, y dentro de cada grupo por fecha más cercana
     tareasVisibles = [...tareasVisibles].sort(function (a, b) {
         if (a.realizada !== b.realizada) {
             return a.realizada ? 1 : -1;
@@ -539,6 +830,13 @@ function mostrarTareas() {
         const etiquetas = document.createElement("div");
         etiquetas.classList.add("etiquetas");
 
+        // Etiqueta del hijo (solo si la familia tiene hijos registrados)
+        if (familia.hijos.length > 0) {
+            const hijo = buscarHijo(tarea.hijoId);
+            const textoHijo = hijo ? `${hijo.emoji} ${hijo.nombre}` : "👨‍👩‍👧 Familia";
+            etiquetas.append(crearEtiqueta(textoHijo, "etiqueta-hijo"));
+        }
+
         etiquetas.append(
             crearEtiqueta(nombresTipos[tarea.tipo] || tarea.tipo, "etiqueta-tipo"),
             crearEtiqueta(nombresMaterias[tarea.materia] || tarea.materia, "etiqueta-materia"),
@@ -565,7 +863,8 @@ function mostrarTareas() {
         listaTareas.appendChild(li);
     });
 
-    actualizarResumen();
+    // El resumen muestra los datos del hijo elegido (o de todos)
+    actualizarResumen(tareasDelHijo);
 }
 
 
