@@ -28,7 +28,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // Nuestro propio módulo: el analizador de mensajes
-import { analizarMensaje } from "./analizador.js";
+import { analizarMensaje } from "./analizador.js?v=2";
 
 // Configuración de tu proyecto de Firebase
 const firebaseConfig = {
