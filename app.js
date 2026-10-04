@@ -1639,12 +1639,15 @@ async function revisarRecordatorios(forzar = false) {
     }
 
     const registro = await navigator.serviceWorker.ready;
-    registro.showNotification("📚 Tareas de mi hijo", {
+    registro.showNotification("📚 Tareas al Día", {
         body: mensaje,
         icon: "iconos/android-chrome-192x192.png",
         badge: "iconos/android-chrome-192x192.png",
         tag: "resumen-diario"
     });
+
+    localStorage.setItem("ultimoAviso", hoy);
+}
 
     localStorage.setItem("ultimoAviso", hoy);
 }

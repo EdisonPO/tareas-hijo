@@ -1,8 +1,8 @@
 {
     "id": "./",
-    "name": "Tareas de mi hijo",
-    "short_name": "Tareas",
-    "description": "Control de deberes, compras y avisos escolares",
+    "name": "Tareas al Día",
+    "short_name": "Al Día",
+    "description": "Deberes, compras y avisos del colegio de toda la familia, siempre al día.",
     "start_url": "./",
     "scope": "./",
     "display": "standalone",
@@ -24,6 +24,7 @@
     "share_target": {
         "action": "./index.html",
         "method": "GET",
+        "enctype": "application/x-www-form-urlencoded",
         "params": {
             "title": "titulo",
             "text": "texto",
