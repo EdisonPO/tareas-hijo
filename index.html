@@ -278,6 +278,23 @@
         <ul id="lista-sugerencias" class="lista-sugerencias"></ul>
     </dialog>
 
+    <!-- Ventana "Avisos encontrados" (varios avisos en un mismo mensaje) -->
+    <dialog id="dialogo-avisos" class="dialogo">
+        <div class="dialogo-encabezado">
+            <h2>Avisos encontrados</h2>
+            <button type="button" id="btn-cerrar-avisos" class="btn-cerrar" aria-label="Cerrar">✕</button>
+        </div>
+
+        <p id="texto-avisos" class="texto-ayuda"></p>
+
+        <label for="hijo-avisos">¿Para quién son?</label>
+        <select id="hijo-avisos"></select>
+
+        <ul id="lista-avisos" class="lista-sugerencias"></ul>
+
+        <button type="button" id="btn-agregar-todos" class="btn-principal">✅ Agregar todos</button>
+    </dialog>
+
     <script type="module" src="app.js"></script>
 </body>
 </html>

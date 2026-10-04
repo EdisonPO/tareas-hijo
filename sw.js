@@ -1,5 +1,5 @@
 // Nombre de la caché. Si cambias esta versión, se crea una caché nueva
-const CACHE = "tareas-v4";
+const CACHE = "tareas-v5";
 
 // Archivos que se guardan para que la app abra más rápido
 const ARCHIVOS = [

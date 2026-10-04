@@ -28,7 +28,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // Nuestro propio módulo: el analizador de mensajes
-import { analizarMensaje } from "./analizador.js?v=2";
+import { analizarAvisos } from "./analizador.js?v=3";
 
 // Configuración de tu proyecto de Firebase
 const firebaseConfig = {
@@ -61,7 +61,9 @@ let familia = { miembros: [], hijos: [] };
 let filtroActual = "todas";      // "todas", "pendientes" o "realizadas"
 let filtroHijo = "todos";        // "todos" o el id de un hijo
 let modoNino = localStorage.getItem("modoNino");   // id del hijo en modo niño, o null
-let sugerenciaEnRevision = null; // id de la sugerencia que se está convirtiendo en tarea
+let sugerenciaEnRevision = null; // id de la sugerencia de Gmail que se está convirtiendo en tarea
+let avisosPendientes = [];       // avisos encontrados en un mensaje con varios avisos
+let avisoEnRevision = null;      // el aviso de esa lista que se está revisando en el formulario
 let dejarDeEscucharTareas = null;
 let dejarDeEscucharFamilia = null;
 let dejarDeEscucharSugerencias = null;
@@ -124,6 +126,14 @@ const btnCerrarPegar = document.getElementById("btn-cerrar-pegar");
 const btnPegarPortapapeles = document.getElementById("btn-pegar-portapapeles");
 const formPegar = document.getElementById("form-pegar");
 const textoMensaje = document.getElementById("texto-mensaje");
+
+// Varios avisos en un mismo mensaje
+const dialogoAvisos = document.getElementById("dialogo-avisos");
+const btnCerrarAvisos = document.getElementById("btn-cerrar-avisos");
+const textoAvisos = document.getElementById("texto-avisos");
+const selectHijoAvisos = document.getElementById("hijo-avisos");
+const listaAvisos = document.getElementById("lista-avisos");
+const btnAgregarTodos = document.getElementById("btn-agregar-todos");
 
 // Avisos del colegio (sugerencias desde Gmail)
 const btnSugerencias = document.getElementById("btn-sugerencias");
@@ -478,10 +488,12 @@ function detenerEscucha() {
 
     tareas = [];
     sugerencias = [];
+    avisosPendientes = [];
+    avisoEnRevision = null;
     familia = { miembros: [], hijos: [] };
     filtroHijo = "todos";
 
-    [dialogoFamilia, dialogoNino, dialogoPin, dialogoPegar, dialogoSugerencias].forEach(function (dialogo) {
+    [dialogoFamilia, dialogoNino, dialogoPin, dialogoPegar, dialogoSugerencias, dialogoAvisos].forEach(function (dialogo) {
         if (dialogo.open) {
             dialogo.close();
         }
@@ -518,17 +530,6 @@ function dibujarSugerencias() {
         descripcion.className = "descripcion-sugerencia";
         descripcion.textContent = sugerencia.descripcion;
 
-        const etiquetas = document.createElement("div");
-        etiquetas.className = "etiquetas";
-        etiquetas.append(
-            crearEtiqueta(nombresTipos[sugerencia.tipo] || sugerencia.tipo, "etiqueta-tipo"),
-            crearEtiqueta(nombresMaterias[sugerencia.materia] || sugerencia.materia, "etiqueta-materia"),
-            crearEtiqueta(
-                sugerencia.fecha ? `🗓️ ${formatearFecha(sugerencia.fecha)}` : "🗓️ Sin fecha",
-                "etiqueta-fecha"
-            )
-        );
-
         // Mensaje original, plegable
         const detalles = document.createElement("details");
         const resumen = document.createElement("summary");
@@ -556,7 +557,7 @@ function dibujarSugerencias() {
 
         botones.append(btnAceptar, btnDescartar);
 
-        li.append(descripcion, etiquetas, detalles, botones);
+        li.append(descripcion, crearEtiquetasAviso(sugerencia), detalles, botones);
         listaSugerencias.appendChild(li);
     });
 }
@@ -564,14 +565,10 @@ function dibujarSugerencias() {
 // Llena el formulario con la sugerencia para que el adulto la confirme
 function revisarSugerencia(sugerencia) {
     dialogoSugerencias.close();
+    avisoEnRevision = null;
     sugerenciaEnRevision = sugerencia.id;
 
-    llenarFormularioCon({
-        descripcion: sugerencia.descripcion,
-        materia: sugerencia.materia,
-        tipo: sugerencia.tipo,
-        fecha: sugerencia.fecha
-    });
+    llenarFormularioCon(sugerencia);
 
     avisoAnalisis.textContent = sugerencia.fecha
         ? "📥 Aviso del correo. Revisa los datos y elige para quién es."
@@ -586,6 +583,18 @@ async function descartarSugerencia(id) {
         console.error(error);
         alert("No se pudo descartar el aviso.");
     }
+}
+
+// Etiquetas de tipo, materia y fecha para una tarjeta de aviso
+function crearEtiquetasAviso(aviso) {
+    const etiquetas = document.createElement("div");
+    etiquetas.className = "etiquetas";
+    etiquetas.append(
+        crearEtiqueta(nombresTipos[aviso.tipo] || aviso.tipo, "etiqueta-tipo"),
+        crearEtiqueta(nombresMaterias[aviso.materia] || aviso.materia, "etiqueta-materia"),
+        crearEtiqueta(aviso.fecha ? `🗓️ ${formatearFecha(aviso.fecha)}` : "🗓️ Sin fecha", "etiqueta-fecha")
+    );
+    return etiquetas;
 }
 
 
@@ -608,13 +617,11 @@ btnPegarPortapapeles.addEventListener("click", async function () {
     }
 });
 
-// Analizar el mensaje y llenar el formulario
+// Analizar el mensaje pegado
 formPegar.addEventListener("submit", function (e) {
     e.preventDefault();
-    const resultado = analizarMensaje(textoMensaje.value);
     dialogoPegar.close();
-    sugerenciaEnRevision = null;
-    llenarFormularioCon(resultado);
+    procesarTexto(textoMensaje.value, "pegado");
 });
 
 // Procesa el texto que llegó desde el menú "Compartir" de Android
@@ -633,13 +640,28 @@ function procesarTextoCompartido() {
         return;
     }
 
+    procesarTexto(texto, "compartido");
+}
+
+// Analiza un texto: si hay un aviso abre el formulario; si hay varios, abre la lista
+function procesarTexto(texto, origen) {
     sugerenciaEnRevision = null;
-    const resultado = analizarMensaje(texto);
+    avisoEnRevision = null;
+
+    const avisos = analizarAvisos(texto);
+
+    if (avisos.length > 1) {
+        mostrarAvisos(avisos);
+        return;
+    }
+
+    const resultado = avisos[0];
     llenarFormularioCon(resultado);
 
+    const inicio = origen === "compartido" ? "📲 Mensaje compartido." : "✨ Datos detectados del mensaje.";
     avisoAnalisis.textContent = resultado.fecha
-        ? "📲 Mensaje compartido. Revisa los datos y elige para quién es."
-        : "📲 Mensaje compartido. ⚠️ No encontré la fecha: elígela tú.";
+        ? `${inicio} Revísalos antes de agregar.`
+        : `${inicio} ⚠️ No encontré la fecha: elígela tú.`;
 }
 
 // Abre el formulario de tareas con los datos detectados
@@ -655,6 +677,127 @@ function llenarFormularioCon(resultado) {
         ? "✨ Datos detectados del mensaje. Revísalos antes de agregar."
         : "✨ Datos detectados del mensaje. ⚠️ No encontré la fecha: elígela tú.";
 }
+
+
+// ===== Varios avisos en un mismo mensaje =====
+
+btnCerrarAvisos.addEventListener("click", () => dialogoAvisos.close());
+
+// Muestra la ventana con la lista de avisos encontrados
+function mostrarAvisos(avisos) {
+    avisosPendientes = avisos;
+    selectHijoAvisos.value = filtroHijo !== "todos" ? filtroHijo : "";
+    dibujarAvisos();
+    abrirDialogoAvisos();
+}
+
+function abrirDialogoAvisos() {
+    if (!dialogoAvisos.open) {
+        dialogoAvisos.showModal();
+    }
+}
+
+// Dibuja una tarjeta por cada aviso pendiente
+function dibujarAvisos() {
+    const cantidad = avisosPendientes.length;
+
+    textoAvisos.textContent = cantidad === 1
+        ? "Queda 1 aviso por agregar."
+        : `Hay ${cantidad} avisos en el mensaje. Agrégalos todos de una vez o revisa cada uno.`;
+
+    listaAvisos.innerHTML = "";
+
+    avisosPendientes.forEach(function (aviso) {
+        const li = document.createElement("li");
+        li.className = "tarjeta-sugerencia";
+
+        const descripcion = document.createElement("p");
+        descripcion.className = "descripcion-sugerencia";
+        descripcion.textContent = aviso.descripcion;
+
+        const botones = document.createElement("div");
+        botones.className = "botones-sugerencia";
+
+        const btnRevisar = document.createElement("button");
+        btnRevisar.type = "button";
+        btnRevisar.className = "btn-aceptar-sugerencia";
+        btnRevisar.textContent = "✅ Revisar y agregar";
+        btnRevisar.addEventListener("click", () => revisarAviso(aviso));
+
+        const btnQuitar = document.createElement("button");
+        btnQuitar.type = "button";
+        btnQuitar.className = "btn-descartar-sugerencia";
+        btnQuitar.textContent = "Quitar";
+        btnQuitar.addEventListener("click", () => quitarAvisoPendiente(aviso));
+
+        botones.append(btnRevisar, btnQuitar);
+
+        li.append(descripcion, crearEtiquetasAviso(aviso), botones);
+        listaAvisos.appendChild(li);
+    });
+}
+
+// Lleva un aviso al formulario para revisarlo antes de agregarlo
+function revisarAviso(aviso) {
+    dialogoAvisos.close();
+    sugerenciaEnRevision = null;
+
+    llenarFormularioCon(aviso);
+    avisoEnRevision = aviso;
+    selectHijo.value = selectHijoAvisos.value;
+
+    avisoAnalisis.textContent = aviso.fecha
+        ? "🧩 Aviso del mensaje. Revisa los datos antes de agregar."
+        : "🧩 Aviso del mensaje. ⚠️ No encontré la fecha: elígela tú.";
+}
+
+// Quita un aviso de la lista (porque ya se agregó o porque no interesa)
+function quitarAvisoPendiente(aviso) {
+    avisosPendientes = avisosPendientes.filter(a => a !== aviso);
+
+    if (avisosPendientes.length === 0) {
+        if (dialogoAvisos.open) {
+            dialogoAvisos.close();
+        }
+        return;
+    }
+    dibujarAvisos();
+}
+
+// Agrega de una vez todos los avisos que tienen fecha
+btnAgregarTodos.addEventListener("click", async function () {
+    const conFecha = avisosPendientes.filter(a => a.fecha);
+
+    if (conFecha.length === 0) {
+        alert("Ningún aviso tiene fecha. Revísalos uno por uno para elegirla.");
+        return;
+    }
+
+    btnAgregarTodos.disabled = true;
+
+    try {
+        for (const aviso of conFecha) {
+            await addDoc(refTareas, {
+                descripcion: aviso.descripcion,
+                materia: aviso.materia,
+                tipo: aviso.tipo,
+                fecha: aviso.fecha,
+                hijoId: selectHijoAvisos.value,
+                realizada: false,
+                creadoPor: auth.currentUser.email,
+                creadoEn: serverTimestamp()
+            });
+            quitarAvisoPendiente(aviso);
+        }
+
+        mostrarToast(`✅ ${conFecha.length} tarea(s) agregada(s)`);
+    } catch (error) {
+        console.error(error);
+        alert("No se pudieron agregar todas las tareas. Revisa tu conexión.");
+    } finally {
+        btnAgregarTodos.disabled = false;
+    }
+});
 
 
 // ===== Mi familia =====
@@ -833,27 +976,29 @@ function dibujarFiltroHijos() {
     });
 }
 
-// Llena el campo "¿Para quién?" del formulario de tareas
+// Llena los campos "¿Para quién?" (del formulario y de la ventana de avisos)
 function llenarSelectHijos() {
-    const seleccionAnterior = selectHijo.value;
-    selectHijo.innerHTML = "";
+    [selectHijo, selectHijoAvisos].forEach(function (select) {
+        const seleccionAnterior = select.value;
+        select.innerHTML = "";
 
-    const opcionFamilia = document.createElement("option");
-    opcionFamilia.value = "";
-    opcionFamilia.textContent = "👨‍👩‍👧 Toda la familia";
-    selectHijo.appendChild(opcionFamilia);
+        const opcionFamilia = document.createElement("option");
+        opcionFamilia.value = "";
+        opcionFamilia.textContent = "👨‍👩‍👧 Toda la familia";
+        select.appendChild(opcionFamilia);
 
-    familia.hijos.forEach(function (hijo) {
-        const opcion = document.createElement("option");
-        opcion.value = hijo.id;
-        opcion.textContent = `${hijo.emoji} ${hijo.nombre}`;
-        selectHijo.appendChild(opcion);
+        familia.hijos.forEach(function (hijo) {
+            const opcion = document.createElement("option");
+            opcion.value = hijo.id;
+            opcion.textContent = `${hijo.emoji} ${hijo.nombre}`;
+            select.appendChild(opcion);
+        });
+
+        // Mantener lo que estaba elegido, si todavía existe
+        if (seleccionAnterior === "" || buscarHijo(seleccionAnterior)) {
+            select.value = seleccionAnterior;
+        }
     });
-
-    // Mantener lo que estaba elegido, si todavía existe
-    if (seleccionAnterior === "" || buscarHijo(seleccionAnterior)) {
-        selectHijo.value = seleccionAnterior;
-    }
 }
 
 function buscarHijo(id) {
@@ -1025,7 +1170,7 @@ async function convertirPinEnHash(pin) {
         .join("");
 }
 
-// Mensaje flotante de felicitación
+// Mensaje flotante
 function mostrarToast(texto) {
     toast.textContent = texto;
     toast.classList.add("visible");
@@ -1089,8 +1234,9 @@ async function subirTareasLocales() {
 formulario.addEventListener("submit", async function (e) {
     e.preventDefault();
 
-    // Recordar si esta tarea viene de un aviso del correo (antes de cerrar el formulario)
+    // Recordar de dónde viene esta tarea (antes de cerrar el formulario)
     const idSugerencia = sugerenciaEnRevision;
+    const aviso = avisoEnRevision;
 
     const nueva = {
         descripcion: document.getElementById("descripcion").value.trim(),
@@ -1108,12 +1254,20 @@ formulario.addEventListener("submit", async function (e) {
     try {
         const nuevaTarea = await addDoc(refTareas, nueva);
 
-        // Si venía de un aviso, marcarlo como aceptado para que ya no aparezca
+        // Si venía de un aviso de Gmail, marcarlo como aceptado
         if (idSugerencia) {
             await updateDoc(doc(refSugerencias, idSugerencia), {
                 estado: "aceptada",
                 tareaId: nuevaTarea.id
             });
+        }
+
+        // Si venía de un mensaje con varios avisos, seguir con los que faltan
+        if (aviso) {
+            quitarAvisoPendiente(aviso);
+            if (avisosPendientes.length > 0) {
+                abrirDialogoAvisos();
+            }
         }
     } catch (error) {
         console.error(error);
@@ -1173,13 +1327,24 @@ function cerrarFormulario() {
     btnNueva.classList.remove("oculto");
     avisoAnalisis.textContent = "";
     sugerenciaEnRevision = null;
+    avisoEnRevision = null;
 }
 
 btnNueva.addEventListener("click", function () {
     sugerenciaEnRevision = null;
+    avisoEnRevision = null;
     abrirFormulario();
 });
-btnCancelar.addEventListener("click", cerrarFormulario);
+
+// Cancelar: si estabas revisando uno de varios avisos, volver a la lista
+btnCancelar.addEventListener("click", function () {
+    const veniaDeAvisos = avisoEnRevision !== null;
+    cerrarFormulario();
+
+    if (veniaDeAvisos && avisosPendientes.length > 0) {
+        abrirDialogoAvisos();
+    }
+});
 
 botonesFiltro.forEach(function (boton) {
     boton.addEventListener("click", function () {

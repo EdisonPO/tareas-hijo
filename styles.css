@@ -1197,3 +1197,18 @@ body.modo-nino #btn-sugerencias {
     color: var(--rojo);
     border-color: var(--rojo);
 }
+
+/* ===== Ventana "Avisos encontrados" ===== */
+#dialogo-avisos label {
+    display: block;
+    margin-bottom: 6px;
+}
+
+#btn-agregar-todos {
+    margin-top: 14px;
+}
+
+#btn-agregar-todos:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}

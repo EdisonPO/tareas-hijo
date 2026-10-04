@@ -35,8 +35,11 @@ const RUIDO = [
     { patron: /\b(copiaron|se trabajo|fue trabajado)\b/, puntos: -1 }
 ];
 
+// Puntos mínimos para que un bloque cuente como aviso
+const PUNTOS_MINIMOS = 4;
 
-// ===== Función principal (la única que usa el resto de la app) =====
+
+// ===== Un solo aviso: analiza el mensaje completo =====
 export function analizarMensaje(texto, asunto = "", hoy = new Date()) {
     const limpio = quitarEncabezadosWhatsApp(texto);
     const todo = `${asunto}\n${limpio}`;
@@ -56,6 +59,77 @@ export function analizarMensaje(texto, asunto = "", hoy = new Date()) {
             || detectarFecha(asunto, hoy),
         descripcion: detectarDescripcion(limpio, asunto, tipo, principal)
     };
+}
+
+
+// ===== Varios avisos: separa el mensaje en bloques =====
+// Devuelve una lista de avisos. Si solo encuentra uno, la lista tiene un elemento.
+export function analizarAvisos(texto, asunto = "", hoy = new Date()) {
+    const limpio = quitarEncabezadosWhatsApp(texto);
+    const general = analizarMensaje(texto, asunto, hoy);
+
+    // Una lista con viñetas (como los materiales) es un solo aviso
+    if (tieneVinetas(limpio)) {
+        return [general];
+    }
+
+    const avisos = [];
+
+    dividirEnBloques(limpio).forEach(function (bloque) {
+        const principal = elegirOracionPrincipal(bloque);
+
+        if (!principal || principal.puntos < PUNTOS_MINIMOS) {
+            return;
+        }
+
+        const tipo = detectarTipo(principal.texto);
+        const materiaOracion = detectarMateria(principal.texto);
+        const materiaBloque = detectarMateria(bloque);
+
+        // Materia: de la oración, del bloque, o del mensaje completo (menos en eventos)
+        let materia = "otra";
+        if (materiaOracion !== "otra") {
+            materia = materiaOracion;
+        } else if (materiaBloque !== "otra") {
+            materia = materiaBloque;
+        } else if (tipo !== "evento") {
+            materia = general.materia;
+        }
+
+        const aviso = {
+            tipo: tipo,
+            materia: materia,
+            fecha: detectarFecha(principal.texto, hoy)
+                || detectarFecha(bloque, hoy)
+                || general.fecha,
+            descripcion: redactarDescripcion(principal.texto)
+        };
+
+        // Evitar avisos repetidos
+        if (!avisos.some(a => a.descripcion === aviso.descripcion)) {
+            avisos.push(aviso);
+        }
+    });
+
+    return avisos.length >= 2 ? avisos : [general];
+}
+
+// Divide en párrafos, y también antes de palabras que suelen iniciar otro aviso
+function dividirEnBloques(texto) {
+    const conector = /(?<=[.!?])\s+(?=(?:de igual manera|asimismo|adem[aá]s|finalmente|por [uú]ltimo|tambi[eé]n)\b)/i;
+
+    return texto
+        .split(/\n\s*\n/)
+        .flatMap(parrafo => parrafo.split(conector))
+        .map(bloque => bloque.trim())
+        .filter(Boolean);
+}
+
+// ¿Alguna línea empieza con •, -, * o "1." / "1)"?
+function tieneVinetas(texto) {
+    return texto
+        .split(/\r?\n/)
+        .some(linea => /^([•·\-*]|\d+[.)])\s+/.test(linea.trim()));
 }
 
 
@@ -244,7 +318,7 @@ function detectarDescripcion(texto, asunto, tipo, principal) {
     }
 
     // 2. Una oración principal clara (con buen puntaje)
-    if (principal && principal.puntos >= 4) {
+    if (principal && principal.puntos >= PUNTOS_MINIMOS) {
         return redactarDescripcion(principal.texto);
     }
 
