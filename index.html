@@ -84,11 +84,20 @@
 
         <div class="encabezado-tareas">
             <h2>Mis tareas</h2>
-            <button type="button" id="btn-nueva">+ Nueva tarea</button>
+            <div class="acciones-tareas">
+                <button type="button" id="btn-pegar">📋 Pegar mensaje</button>
+                <button type="button" id="btn-nueva">+ Nueva tarea</button>
+            </div>
         </div>
+
+        <!-- Aviso de correos nuevos del colegio (solo aparece si hay) -->
+        <button type="button" id="btn-sugerencias" class="oculto"></button>
 
         <form id="form-tarea" class="oculto">
             <h3>Registrar tarea</h3>
+
+            <!-- Aviso cuando los datos vienen de un mensaje analizado -->
+            <p id="aviso-analisis"></p>
 
             <label for="descripcion">Descripción:</label>
             <input type="text" id="descripcion" placeholder="Ej: Traer cartulina azul" required>
@@ -237,6 +246,36 @@
 
         <button type="button" id="btn-olvide-pin" class="enlace">Olvidé el PIN</button>
         <p id="aviso-pin"></p>
+    </dialog>
+
+    <!-- Ventana "Pegar mensaje" -->
+    <dialog id="dialogo-pegar" class="dialogo">
+        <div class="dialogo-encabezado">
+            <h2>Pegar mensaje</h2>
+            <button type="button" id="btn-cerrar-pegar" class="btn-cerrar" aria-label="Cerrar">✕</button>
+        </div>
+
+        <p class="texto-ayuda">Copia el aviso del profesor (de WhatsApp, del correo o de Idukay) y pégalo aquí. La app intentará llenar la tarea sola.</p>
+
+        <button type="button" id="btn-pegar-portapapeles" class="enlace">📋 Pegar lo que copié</button>
+
+        <form id="form-pegar">
+            <label for="texto-mensaje">Mensaje:</label>
+            <textarea id="texto-mensaje" rows="8" placeholder="Pega aquí el mensaje…" required></textarea>
+            <button type="submit">✨ Analizar mensaje</button>
+        </form>
+    </dialog>
+
+    <!-- Ventana "Avisos del colegio" (sugerencias que llegan desde Gmail) -->
+    <dialog id="dialogo-sugerencias" class="dialogo">
+        <div class="dialogo-encabezado">
+            <h2>Avisos del colegio</h2>
+            <button type="button" id="btn-cerrar-sugerencias" class="btn-cerrar" aria-label="Cerrar">✕</button>
+        </div>
+
+        <p class="texto-ayuda">Llegaron por correo. Revisa cada uno y agrégalo como tarea, o descártalo si no hace falta.</p>
+
+        <ul id="lista-sugerencias" class="lista-sugerencias"></ul>
     </dialog>
 
     <script type="module" src="app.js"></script>

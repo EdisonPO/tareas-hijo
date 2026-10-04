@@ -1036,3 +1036,164 @@ body.modo-nino #lista-tareas input[type="checkbox"] {
         transition: none !important;
     }
 }
+
+/* ===== Botones de la lista: pegar mensaje y nueva tarea ===== */
+.acciones-tareas {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#btn-pegar {
+    padding: 10px 16px;
+    border: 2px solid var(--morado);
+    border-radius: 999px;
+    background-color: white;
+    color: var(--morado);
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+#btn-pegar:hover {
+    background-color: var(--morado);
+    color: white;
+}
+
+/* ===== Cuadro de texto para pegar el mensaje ===== */
+textarea {
+    width: 100%;
+    padding: 12px 14px;
+    background-color: #faf8ff;
+    border: 2px solid var(--borde);
+    border-radius: 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    color: var(--texto);
+    resize: vertical;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: var(--morado);
+    box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.18);
+}
+
+/* ===== Aviso de datos detectados ===== */
+#aviso-analisis {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background-color: #ecfdf5;
+    color: #065f46;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+#aviso-analisis:empty {
+    display: none;
+}
+
+/* ===== Aviso de correos nuevos del colegio ===== */
+#btn-sugerencias {
+    width: 100%;
+    margin-bottom: 14px;
+    padding: 12px 16px;
+    border: 2px solid #fcd34d;
+    border-radius: 14px;
+    background-color: #fffbeb;
+    color: #92400e;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+    animation: aparecer 0.35s ease;
+}
+
+#btn-sugerencias:hover {
+    background-color: #fef3c7;
+}
+
+body.modo-nino #btn-sugerencias {
+    display: none;
+}
+
+/* ===== Lista de avisos dentro de la ventana ===== */
+.lista-sugerencias {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.tarjeta-sugerencia {
+    padding: 14px;
+    border: 2px solid var(--borde);
+    border-radius: 14px;
+    background-color: #faf8ff;
+}
+
+.descripcion-sugerencia {
+    margin-bottom: 8px;
+    font-weight: 800;
+    word-break: break-word;
+}
+
+.tarjeta-sugerencia details {
+    margin-top: 10px;
+    font-size: 0.88rem;
+    color: var(--texto-suave);
+}
+
+.tarjeta-sugerencia summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--morado);
+}
+
+.texto-original {
+    max-height: 200px;
+    margin-top: 8px;
+    padding: 10px;
+    overflow: auto;
+    border-radius: 10px;
+    background-color: white;
+    white-space: pre-wrap;
+}
+
+.botones-sugerencia {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.btn-aceptar-sugerencia {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(120deg, var(--verde), var(--azul));
+    color: white;
+    font-family: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.btn-descartar-sugerencia {
+    padding: 10px 14px;
+    border: 2px solid var(--borde);
+    border-radius: 10px;
+    background-color: white;
+    color: var(--texto-suave);
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-descartar-sugerencia:hover {
+    color: var(--rojo);
+    border-color: var(--rojo);
+}

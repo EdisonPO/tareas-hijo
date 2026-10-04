@@ -22,8 +22,13 @@ import {
     onSnapshot,
     serverTimestamp,
     arrayUnion,
-    arrayRemove
+    arrayRemove,
+    query,
+    where
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// Nuestro propio módulo: el analizador de mensajes
+import { analizarMensaje } from "./analizador.js";
 
 // Configuración de tu proyecto de Firebase
 const firebaseConfig = {
@@ -46,16 +51,20 @@ auth.languageCode = "es";
 const FAMILIA_ID = "mi-familia";
 const refFamilia = doc(db, "familias", FAMILIA_ID);
 const refTareas = collection(db, "familias", FAMILIA_ID, "tareas");
+const refSugerencias = collection(db, "familias", FAMILIA_ID, "sugerencias");
 
 
 // ===== Estado de la app =====
 let tareas = [];
+let sugerencias = [];
 let familia = { miembros: [], hijos: [] };
 let filtroActual = "todas";      // "todas", "pendientes" o "realizadas"
 let filtroHijo = "todos";        // "todos" o el id de un hijo
 let modoNino = localStorage.getItem("modoNino");   // id del hijo en modo niño, o null
+let sugerenciaEnRevision = null; // id de la sugerencia que se está convirtiendo en tarea
 let dejarDeEscucharTareas = null;
 let dejarDeEscucharFamilia = null;
+let dejarDeEscucharSugerencias = null;
 let modoRegistro = false;        // false = iniciar sesión, true = crear cuenta
 let temporizadorToast = null;
 
@@ -89,7 +98,22 @@ const filtroHijos = document.getElementById("filtro-hijos");
 const selectHijo = document.getElementById("hijo");
 const btnNueva = document.getElementById("btn-nueva");
 const btnCancelar = document.getElementById("btn-cancelar");
+const avisoAnalisis = document.getElementById("aviso-analisis");
 const toast = document.getElementById("toast");
+
+// Pegar mensaje
+const btnPegar = document.getElementById("btn-pegar");
+const dialogoPegar = document.getElementById("dialogo-pegar");
+const btnCerrarPegar = document.getElementById("btn-cerrar-pegar");
+const btnPegarPortapapeles = document.getElementById("btn-pegar-portapapeles");
+const formPegar = document.getElementById("form-pegar");
+const textoMensaje = document.getElementById("texto-mensaje");
+
+// Avisos del colegio (sugerencias desde Gmail)
+const btnSugerencias = document.getElementById("btn-sugerencias");
+const dialogoSugerencias = document.getElementById("dialogo-sugerencias");
+const btnCerrarSugerencias = document.getElementById("btn-cerrar-sugerencias");
+const listaSugerencias = document.getElementById("lista-sugerencias");
 
 // Mi familia
 const btnFamilia = document.getElementById("btn-familia");
@@ -291,6 +315,7 @@ async function revisarUsuario(usuario) {
     await subirTareasLocales();
     escucharFamilia();
     escucharTareas();
+    escucharSugerencias();
 }
 
 // Cambia la clase del <body>: "cargando", "sin-sesion" o "con-sesion"
@@ -394,6 +419,25 @@ function escucharTareas() {
     );
 }
 
+// Escucha solo las sugerencias pendientes (avisos de Gmail aún sin revisar)
+function escucharSugerencias() {
+    const consulta = query(refSugerencias, where("estado", "==", "pendiente"));
+
+    dejarDeEscucharSugerencias = onSnapshot(
+        consulta,
+        function (resultado) {
+            sugerencias = resultado.docs
+                .map(d => ({ id: d.id, ...d.data() }))
+                .sort((a, b) => (a.fecha || "9999").localeCompare(b.fecha || "9999"));
+            dibujarSugerencias();
+        },
+        function (error) {
+            // Solo se registra: un error aquí no debe sacar al usuario de la app
+            console.error("Error al escuchar las sugerencias:", error);
+        }
+    );
+}
+
 // Si alguien te quita de la familia mientras usas la app, volver a revisar tu acceso
 function manejarErrorEscucha(error) {
     console.error("Error al escuchar datos:", error);
@@ -404,23 +448,168 @@ function manejarErrorEscucha(error) {
 
 // Deja de escuchar (por ejemplo, al cerrar sesión)
 function detenerEscucha() {
-    if (dejarDeEscucharTareas) {
-        dejarDeEscucharTareas();
-        dejarDeEscucharTareas = null;
-    }
-    if (dejarDeEscucharFamilia) {
-        dejarDeEscucharFamilia();
-        dejarDeEscucharFamilia = null;
-    }
+    [dejarDeEscucharTareas, dejarDeEscucharFamilia, dejarDeEscucharSugerencias].forEach(function (detener) {
+        if (detener) {
+            detener();
+        }
+    });
+    dejarDeEscucharTareas = null;
+    dejarDeEscucharFamilia = null;
+    dejarDeEscucharSugerencias = null;
+
     tareas = [];
+    sugerencias = [];
     familia = { miembros: [], hijos: [] };
     filtroHijo = "todos";
 
-    [dialogoFamilia, dialogoNino, dialogoPin].forEach(function (dialogo) {
+    [dialogoFamilia, dialogoNino, dialogoPin, dialogoPegar, dialogoSugerencias].forEach(function (dialogo) {
         if (dialogo.open) {
             dialogo.close();
         }
     });
+}
+
+
+// ===== Avisos del colegio (sugerencias desde Gmail) =====
+
+btnSugerencias.addEventListener("click", () => dialogoSugerencias.showModal());
+btnCerrarSugerencias.addEventListener("click", () => dialogoSugerencias.close());
+
+// Dibuja el aviso amarillo y la lista dentro de la ventana
+function dibujarSugerencias() {
+    const cantidad = sugerencias.length;
+
+    btnSugerencias.classList.toggle("oculto", cantidad === 0);
+    btnSugerencias.textContent = cantidad === 1
+        ? "📥 Tienes 1 aviso nuevo del colegio"
+        : `📥 Tienes ${cantidad} avisos nuevos del colegio`;
+
+    listaSugerencias.innerHTML = "";
+
+    // Si ya no quedan avisos, cerrar la ventana
+    if (cantidad === 0 && dialogoSugerencias.open) {
+        dialogoSugerencias.close();
+    }
+
+    sugerencias.forEach(function (sugerencia) {
+        const li = document.createElement("li");
+        li.className = "tarjeta-sugerencia";
+
+        const descripcion = document.createElement("p");
+        descripcion.className = "descripcion-sugerencia";
+        descripcion.textContent = sugerencia.descripcion;
+
+        const etiquetas = document.createElement("div");
+        etiquetas.className = "etiquetas";
+        etiquetas.append(
+            crearEtiqueta(nombresTipos[sugerencia.tipo] || sugerencia.tipo, "etiqueta-tipo"),
+            crearEtiqueta(nombresMaterias[sugerencia.materia] || sugerencia.materia, "etiqueta-materia"),
+            crearEtiqueta(
+                sugerencia.fecha ? `🗓️ ${formatearFecha(sugerencia.fecha)}` : "🗓️ Sin fecha",
+                "etiqueta-fecha"
+            )
+        );
+
+        // Mensaje original, plegable
+        const detalles = document.createElement("details");
+        const resumen = document.createElement("summary");
+        resumen.textContent = "Ver mensaje original";
+        const original = document.createElement("p");
+        original.className = "texto-original";
+        original.textContent = `${sugerencia.asunto || ""}\n\n${sugerencia.textoOriginal || ""}`;
+        detalles.append(resumen, original);
+
+        // Botones
+        const botones = document.createElement("div");
+        botones.className = "botones-sugerencia";
+
+        const btnAceptar = document.createElement("button");
+        btnAceptar.type = "button";
+        btnAceptar.className = "btn-aceptar-sugerencia";
+        btnAceptar.textContent = "✅ Revisar y agregar";
+        btnAceptar.addEventListener("click", () => revisarSugerencia(sugerencia));
+
+        const btnDescartar = document.createElement("button");
+        btnDescartar.type = "button";
+        btnDescartar.className = "btn-descartar-sugerencia";
+        btnDescartar.textContent = "Descartar";
+        btnDescartar.addEventListener("click", () => descartarSugerencia(sugerencia.id));
+
+        botones.append(btnAceptar, btnDescartar);
+
+        li.append(descripcion, etiquetas, detalles, botones);
+        listaSugerencias.appendChild(li);
+    });
+}
+
+// Llena el formulario con la sugerencia para que el adulto la confirme
+function revisarSugerencia(sugerencia) {
+    dialogoSugerencias.close();
+    sugerenciaEnRevision = sugerencia.id;
+
+    llenarFormularioCon({
+        descripcion: sugerencia.descripcion,
+        materia: sugerencia.materia,
+        tipo: sugerencia.tipo,
+        fecha: sugerencia.fecha
+    });
+
+    avisoAnalisis.textContent = sugerencia.fecha
+        ? "📥 Aviso del correo. Revisa los datos y elige para quién es."
+        : "📥 Aviso del correo. ⚠️ No encontré la fecha: elígela tú.";
+}
+
+// Marca la sugerencia como descartada (deja de aparecer)
+async function descartarSugerencia(id) {
+    try {
+        await updateDoc(doc(refSugerencias, id), { estado: "descartada" });
+    } catch (error) {
+        console.error(error);
+        alert("No se pudo descartar el aviso.");
+    }
+}
+
+
+// ===== Pegar mensaje (usa el analizador) =====
+
+btnPegar.addEventListener("click", function () {
+    formPegar.reset();
+    dialogoPegar.showModal();
+    setTimeout(() => textoMensaje.focus(), 50);
+});
+
+btnCerrarPegar.addEventListener("click", () => dialogoPegar.close());
+
+// Leer directamente lo que el usuario copió
+btnPegarPortapapeles.addEventListener("click", async function () {
+    try {
+        textoMensaje.value = await navigator.clipboard.readText();
+    } catch (error) {
+        alert("No se pudo leer lo copiado. Mantén presionado el cuadro de texto y elige Pegar.");
+    }
+});
+
+// Analizar el mensaje y llenar el formulario
+formPegar.addEventListener("submit", function (e) {
+    e.preventDefault();
+    const resultado = analizarMensaje(textoMensaje.value);
+    dialogoPegar.close();
+    sugerenciaEnRevision = null;
+    llenarFormularioCon(resultado);
+});
+
+// Abre el formulario de tareas con los datos detectados
+function llenarFormularioCon(resultado) {
+    abrirFormulario();
+
+    document.getElementById("descripcion").value = resultado.descripcion;
+    document.getElementById("materia").value = resultado.materia;
+    document.getElementById("tipo").value = resultado.tipo;
+    document.getElementById("fecha").value = resultado.fecha;
+
+    avisoAnalisis.textContent = resultado.fecha
+        ? "✨ Datos detectados del mensaje. Revísalos antes de agregar."
+        : "✨ Datos detectados del mensaje. ⚠️ No encontré la fecha: elígela tú.";
 }
 
 
@@ -856,6 +1045,9 @@ async function subirTareasLocales() {
 formulario.addEventListener("submit", async function (e) {
     e.preventDefault();
 
+    // Recordar si esta tarea viene de un aviso del correo (antes de cerrar el formulario)
+    const idSugerencia = sugerenciaEnRevision;
+
     const nueva = {
         descripcion: document.getElementById("descripcion").value.trim(),
         materia: document.getElementById("materia").value,
@@ -870,7 +1062,15 @@ formulario.addEventListener("submit", async function (e) {
     cerrarFormulario();
 
     try {
-        await addDoc(refTareas, nueva);
+        const nuevaTarea = await addDoc(refTareas, nueva);
+
+        // Si venía de un aviso, marcarlo como aceptado para que ya no aparezca
+        if (idSugerencia) {
+            await updateDoc(doc(refSugerencias, idSugerencia), {
+                estado: "aceptada",
+                tareaId: nuevaTarea.id
+            });
+        }
     } catch (error) {
         console.error(error);
         alert("No se pudo guardar la tarea. Revisa tu conexión.");
@@ -915,6 +1115,7 @@ async function eliminarTarea(id) {
 function abrirFormulario() {
     formulario.classList.remove("oculto");
     btnNueva.classList.add("oculto");
+    avisoAnalisis.textContent = "";
 
     // Si estás viendo las tareas de un hijo, elegirlo automáticamente
     selectHijo.value = filtroHijo !== "todos" ? filtroHijo : "";
@@ -926,9 +1127,14 @@ function cerrarFormulario() {
     formulario.reset();
     formulario.classList.add("oculto");
     btnNueva.classList.remove("oculto");
+    avisoAnalisis.textContent = "";
+    sugerenciaEnRevision = null;
 }
 
-btnNueva.addEventListener("click", abrirFormulario);
+btnNueva.addEventListener("click", function () {
+    sugerenciaEnRevision = null;
+    abrirFormulario();
+});
 btnCancelar.addEventListener("click", cerrarFormulario);
 
 botonesFiltro.forEach(function (boton) {

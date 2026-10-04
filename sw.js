@@ -1,5 +1,5 @@
 // Nombre de la caché. Si cambias esta versión, se crea una caché nueva
-const CACHE = "tareas-v3";
+const CACHE = "tareas-v4";
 
 // Archivos que se guardan para que la app abra más rápido
 const ARCHIVOS = [
@@ -7,6 +7,7 @@ const ARCHIVOS = [
     "./index.html",
     "./styles.css",
     "./app.js",
+    "./analizador.js",
     "./manifest.json",
     "./iconos/android-chrome-192x192.png",
     "./iconos/android-chrome-512x512.png"
