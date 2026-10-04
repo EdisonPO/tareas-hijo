@@ -53,9 +53,11 @@ let tareas = [];
 let familia = { miembros: [], hijos: [] };
 let filtroActual = "todas";      // "todas", "pendientes" o "realizadas"
 let filtroHijo = "todos";        // "todos" o el id de un hijo
+let modoNino = localStorage.getItem("modoNino");   // id del hijo en modo niño, o null
 let dejarDeEscucharTareas = null;
 let dejarDeEscucharFamilia = null;
 let modoRegistro = false;        // false = iniciar sesión, true = crear cuenta
+let temporizadorToast = null;
 
 
 // ===== Elementos del HTML =====
@@ -87,6 +89,7 @@ const filtroHijos = document.getElementById("filtro-hijos");
 const selectHijo = document.getElementById("hijo");
 const btnNueva = document.getElementById("btn-nueva");
 const btnCancelar = document.getElementById("btn-cancelar");
+const toast = document.getElementById("toast");
 
 // Mi familia
 const btnFamilia = document.getElementById("btn-familia");
@@ -100,6 +103,27 @@ const formHijo = document.getElementById("form-hijo");
 const inputNombreHijo = document.getElementById("nombre-hijo");
 const selectEmojiHijo = document.getElementById("emoji-hijo");
 const avisoFamilia = document.getElementById("aviso-familia");
+
+// Modo niño
+const btnModoNino = document.getElementById("btn-modo-nino");
+const dialogoNino = document.getElementById("dialogo-nino");
+const btnCerrarNino = document.getElementById("btn-cerrar-nino");
+const pasoCrearPin = document.getElementById("paso-crear-pin");
+const pasoElegirHijo = document.getElementById("paso-elegir-hijo");
+const formCrearPin = document.getElementById("form-crear-pin");
+const inputPinNuevo = document.getElementById("pin-nuevo");
+const inputPinConfirmar = document.getElementById("pin-confirmar");
+const listaElegirHijo = document.getElementById("lista-elegir-hijo");
+const btnCambiarPin = document.getElementById("btn-cambiar-pin");
+const avisoNino = document.getElementById("aviso-nino");
+const tituloNino = document.getElementById("titulo-nino");
+const btnSalirNino = document.getElementById("btn-salir-nino");
+const dialogoPin = document.getElementById("dialogo-pin");
+const btnCerrarPin = document.getElementById("btn-cerrar-pin");
+const formPin = document.getElementById("form-pin");
+const inputPinSalir = document.getElementById("pin-salir");
+const btnOlvidePin = document.getElementById("btn-olvide-pin");
+const avisoPin = document.getElementById("aviso-pin");
 
 // Recordatorios
 const btnNotificaciones = document.getElementById("btn-notificaciones");
@@ -222,8 +246,9 @@ onAuthStateChanged(auth, revisarUsuario);
 async function revisarUsuario(usuario) {
     detenerEscucha();
 
-    // 1. Nadie ha iniciado sesión
+    // 1. Nadie ha iniciado sesión (al cerrar sesión, también se quita el modo niño)
     if (!usuario) {
+        salirModoNino();
         mostrarPantalla("sin-sesion");
         mostrarPanelAcceso();
         return;
@@ -262,6 +287,7 @@ async function revisarUsuario(usuario) {
     // 4. Todo bien: mostrar la app
     nombreUsuario.textContent = `👋 ${usuario.displayName || usuario.email}`;
     mostrarPantalla("con-sesion");
+    document.body.classList.toggle("modo-nino", Boolean(modoNino));
     await subirTareasLocales();
     escucharFamilia();
     escucharTareas();
@@ -335,10 +361,15 @@ function escucharFamilia() {
                 filtroHijo = "todos";
             }
 
+            // Si el hijo en modo niño fue eliminado, salir del modo niño
+            if (modoNino && !buscarHijo(modoNino)) {
+                salirModoNino();
+            }
+
             dibujarFamilia();
             dibujarFiltroHijos();
             llenarSelectHijos();
-            mostrarTareas();
+            aplicarModoNino();
         },
         manejarErrorEscucha
     );
@@ -384,9 +415,12 @@ function detenerEscucha() {
     tareas = [];
     familia = { miembros: [], hijos: [] };
     filtroHijo = "todos";
-    if (dialogoFamilia.open) {
-        dialogoFamilia.close();
-    }
+
+    [dialogoFamilia, dialogoNino, dialogoPin].forEach(function (dialogo) {
+        if (dialogo.open) {
+            dialogo.close();
+        }
+    });
 }
 
 
@@ -604,6 +638,189 @@ function limpiarAvisoFamilia() {
 }
 
 
+// ===== Modo niño =====
+
+// Abrir la ventana de modo niño
+btnModoNino.addEventListener("click", function () {
+    limpiarAvisoNino();
+    prepararDialogoNino(false);
+    dialogoNino.showModal();
+});
+
+btnCerrarNino.addEventListener("click", () => dialogoNino.close());
+
+// Muestra el paso de "crear PIN" o el de "elegir hijo"
+function prepararDialogoNino(forzarCrearPin) {
+    const hayPin = Boolean(localStorage.getItem("pinPadres"));
+    const crearPin = forzarCrearPin || !hayPin;
+
+    pasoCrearPin.classList.toggle("oculto", !crearPin);
+    pasoElegirHijo.classList.toggle("oculto", crearPin);
+    formCrearPin.reset();
+    dibujarElegirHijo();
+
+    if (crearPin) {
+        setTimeout(() => inputPinNuevo.focus(), 50);
+    }
+}
+
+// Guardar un PIN nuevo
+formCrearPin.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    limpiarAvisoNino();
+
+    const pin = inputPinNuevo.value;
+    const confirmacion = inputPinConfirmar.value;
+
+    if (!/^\d{4}$/.test(pin)) {
+        mostrarAvisoNino("El PIN debe tener exactamente 4 números.", true);
+        return;
+    }
+
+    if (pin !== confirmacion) {
+        mostrarAvisoNino("Los dos PIN no coinciden. Inténtalo otra vez.", true);
+        return;
+    }
+
+    localStorage.setItem("pinPadres", await convertirPinEnHash(pin));
+    mostrarAvisoNino("PIN guardado en este dispositivo ✅", false);
+    prepararDialogoNino(false);
+});
+
+btnCambiarPin.addEventListener("click", function () {
+    limpiarAvisoNino();
+    prepararDialogoNino(true);
+});
+
+// Dibuja los botones grandes para elegir hijo
+function dibujarElegirHijo() {
+    listaElegirHijo.innerHTML = "";
+
+    if (familia.hijos.length === 0) {
+        const mensaje = document.createElement("p");
+        mensaje.className = "mensaje-sin-hijos";
+        mensaje.textContent = "Primero agrega a tus hijos en 👨‍👩‍👧 Mi familia.";
+        listaElegirHijo.appendChild(mensaje);
+        return;
+    }
+
+    familia.hijos.forEach(function (hijo) {
+        const boton = document.createElement("button");
+        boton.type = "button";
+        boton.className = "btn-elegir-hijo";
+
+        const emoji = document.createElement("span");
+        emoji.className = "emoji-grande";
+        emoji.textContent = hijo.emoji;
+
+        boton.append(emoji, hijo.nombre);
+        boton.addEventListener("click", () => entrarModoNino(hijo.id));
+        listaElegirHijo.appendChild(boton);
+    });
+}
+
+// Activar el modo niño para un hijo
+function entrarModoNino(hijoId) {
+    modoNino = hijoId;
+    localStorage.setItem("modoNino", hijoId);
+    dialogoNino.close();
+    cerrarFormulario();
+    aplicarModoNino();
+}
+
+// Desactivar el modo niño
+function salirModoNino() {
+    modoNino = null;
+    localStorage.removeItem("modoNino");
+    aplicarModoNino();
+}
+
+// Aplica (o quita) el modo niño en la pantalla
+function aplicarModoNino() {
+    document.body.classList.toggle("modo-nino", Boolean(modoNino));
+
+    const hijo = modoNino ? buscarHijo(modoNino) : null;
+    tituloNino.textContent = hijo ? `${hijo.emoji} Tareas de ${hijo.nombre}` : "";
+
+    mostrarTareas();
+}
+
+// Botón "Salir" del modo niño: pedir el PIN
+btnSalirNino.addEventListener("click", function () {
+    formPin.reset();
+    limpiarAvisoPin();
+    dialogoPin.showModal();
+    setTimeout(() => inputPinSalir.focus(), 50);
+});
+
+btnCerrarPin.addEventListener("click", () => dialogoPin.close());
+
+// Revisar el PIN escrito
+formPin.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    limpiarAvisoPin();
+
+    const pinGuardado = localStorage.getItem("pinPadres");
+    const pinEscrito = await convertirPinEnHash(inputPinSalir.value);
+
+    if (!pinGuardado || pinEscrito === pinGuardado) {
+        dialogoPin.close();
+        salirModoNino();
+    } else {
+        mostrarAvisoPin("PIN incorrecto. Inténtalo otra vez.", true);
+        formPin.reset();
+        inputPinSalir.focus();
+    }
+});
+
+// Si se olvidó el PIN: cerrar sesión (un adulto tendrá que volver a entrar)
+btnOlvidePin.addEventListener("click", function () {
+    const aceptar = confirm(
+        "Para salir sin el PIN hay que cerrar sesión. Un adulto tendrá que volver a iniciar sesión con su cuenta. ¿Continuar?"
+    );
+    if (aceptar) {
+        signOut(auth);
+    }
+});
+
+// Convierte el PIN en un "hash" (una huella) para no guardarlo tal cual
+async function convertirPinEnHash(pin) {
+    const datos = new TextEncoder().encode(`tarea-al-dia:${pin}`);
+    const hash = await crypto.subtle.digest("SHA-256", datos);
+    return [...new Uint8Array(hash)]
+        .map(byte => byte.toString(16).padStart(2, "0"))
+        .join("");
+}
+
+// Mensaje flotante de felicitación
+function mostrarToast(texto) {
+    toast.textContent = texto;
+    toast.classList.add("visible");
+    clearTimeout(temporizadorToast);
+    temporizadorToast = setTimeout(() => toast.classList.remove("visible"), 2500);
+}
+
+function mostrarAvisoNino(texto, esError) {
+    avisoNino.textContent = texto;
+    avisoNino.className = esError ? "aviso-error" : "aviso-ok";
+}
+
+function limpiarAvisoNino() {
+    avisoNino.textContent = "";
+    avisoNino.className = "";
+}
+
+function mostrarAvisoPin(texto, esError) {
+    avisoPin.textContent = texto;
+    avisoPin.className = esError ? "aviso-error" : "aviso-ok";
+}
+
+function limpiarAvisoPin() {
+    avisoPin.textContent = "";
+    avisoPin.className = "";
+}
+
+
 // ===== Acciones sobre las tareas =====
 
 // Si había tareas en localStorage (versión anterior), ofrecer subirlas
@@ -663,8 +880,16 @@ formulario.addEventListener("submit", async function (e) {
 // Cambia una tarea de pendiente a realizada, o al revés
 async function cambiarEstado(id) {
     const tarea = tareas.find(t => t.id === id);
+    const quedaraHecha = !tarea.realizada;
+
+    // En modo niño, felicitar al marcar una tarea como hecha
+    if (modoNino && quedaraHecha) {
+        const hijo = buscarHijo(modoNino);
+        mostrarToast(`¡Bien hecho${hijo ? ", " + hijo.nombre : ""}! 🎉`);
+    }
+
     try {
-        await updateDoc(doc(refTareas, id), { realizada: !tarea.realizada });
+        await updateDoc(doc(refTareas, id), { realizada: quedaraHecha });
     } catch (error) {
         console.error(error);
         alert("No se pudo actualizar la tarea.");
@@ -778,17 +1003,20 @@ function mostrarTareas() {
     const hoy = obtenerHoy();
     const manana = obtenerHoy(1);
 
-    // 1. Filtrar por hijo
-    const tareasDelHijo = filtroHijo === "todos"
-        ? tareas
-        : tareas.filter(t => t.hijoId === filtroHijo);
+    // 1. ¿De qué hijo mostrar tareas? En modo niño, siempre del niño activo
+    const hijoVisible = modoNino || (filtroHijo !== "todos" ? filtroHijo : null);
 
-    // 2. Filtrar por estado
+    const tareasDelHijo = hijoVisible
+        ? tareas.filter(t => t.hijoId === hijoVisible)
+        : tareas;
+
+    // 2. Filtrar por estado (en modo niño se muestran todas)
+    const estado = modoNino ? "todas" : filtroActual;
     let tareasVisibles = tareasDelHijo;
 
-    if (filtroActual === "pendientes") {
+    if (estado === "pendientes") {
         tareasVisibles = tareasDelHijo.filter(t => !t.realizada);
-    } else if (filtroActual === "realizadas") {
+    } else if (estado === "realizadas") {
         tareasVisibles = tareasDelHijo.filter(t => t.realizada);
     }
 
@@ -803,7 +1031,7 @@ function mostrarTareas() {
     if (tareasVisibles.length === 0) {
         const vacio = document.createElement("li");
         vacio.classList.add("vacio");
-        vacio.textContent = "No hay tareas aquí 🎉";
+        vacio.textContent = modoNino ? "¡No tienes tareas! 🎉" : "No hay tareas aquí 🎉";
         listaTareas.appendChild(vacio);
     }
 
@@ -830,8 +1058,8 @@ function mostrarTareas() {
         const etiquetas = document.createElement("div");
         etiquetas.classList.add("etiquetas");
 
-        // Etiqueta del hijo (solo si la familia tiene hijos registrados)
-        if (familia.hijos.length > 0) {
+        // Etiqueta del hijo (no hace falta en modo niño)
+        if (familia.hijos.length > 0 && !modoNino) {
             const hijo = buscarHijo(tarea.hijoId);
             const textoHijo = hijo ? `${hijo.emoji} ${hijo.nombre}` : "👨‍👩‍👧 Familia";
             etiquetas.append(crearEtiqueta(textoHijo, "etiqueta-hijo"));

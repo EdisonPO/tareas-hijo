@@ -18,6 +18,7 @@
         <div id="barra-usuario">
             <span id="nombre-usuario"></span>
             <button type="button" id="btn-familia">👨‍👩‍👧 Mi familia</button>
+            <button type="button" id="btn-modo-nino">🧒 Modo niño</button>
             <button type="button" id="btn-salir">Cerrar sesión</button>
         </div>
     </header>
@@ -75,6 +76,12 @@
     </nav>
 
     <section>
+        <!-- Solo se ve en modo niño -->
+        <div id="banda-nino">
+            <p id="titulo-nino"></p>
+            <button type="button" id="btn-salir-nino">🔒 Salir</button>
+        </div>
+
         <div class="encabezado-tareas">
             <h2>Mis tareas</h2>
             <button type="button" id="btn-nueva">+ Nueva tarea</button>
@@ -136,6 +143,9 @@
         <p><a href="https://github.com/EdisonPO" target="_blank">Ver en GitHub</a></p>
     </footer>
 
+    <!-- Mensaje flotante de felicitación -->
+    <div id="toast"></div>
+
     <!-- Ventana "Mi familia" -->
     <dialog id="dialogo-familia">
         <div class="dialogo-encabezado">
@@ -179,6 +189,54 @@
         </form>
 
         <p id="aviso-familia"></p>
+    </dialog>
+
+    <!-- Ventana "Modo niño": crear PIN y elegir hijo -->
+    <dialog id="dialogo-nino" class="dialogo">
+        <div class="dialogo-encabezado">
+            <h2>Modo niño</h2>
+            <button type="button" id="btn-cerrar-nino" class="btn-cerrar" aria-label="Cerrar">✕</button>
+        </div>
+
+        <p class="texto-ayuda">El niño solo verá sus tareas y podrá marcarlas como hechas. Para salir se pedirá el PIN de padres.</p>
+
+        <div id="paso-crear-pin">
+            <h3>Crea un PIN de padres</h3>
+            <form id="form-crear-pin">
+                <label for="pin-nuevo">PIN de 4 números:</label>
+                <input type="password" id="pin-nuevo" class="input-pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required>
+
+                <label for="pin-confirmar">Repite el PIN:</label>
+                <input type="password" id="pin-confirmar" class="input-pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required>
+
+                <button type="submit">Guardar PIN</button>
+            </form>
+        </div>
+
+        <div id="paso-elegir-hijo">
+            <h3>¿Quién va a usar la app?</h3>
+            <div id="lista-elegir-hijo" class="elegir-hijo"></div>
+            <button type="button" id="btn-cambiar-pin" class="enlace">Cambiar PIN</button>
+        </div>
+
+        <p id="aviso-nino"></p>
+    </dialog>
+
+    <!-- Ventana para escribir el PIN y salir del modo niño -->
+    <dialog id="dialogo-pin" class="dialogo">
+        <div class="dialogo-encabezado">
+            <h2>PIN de padres</h2>
+            <button type="button" id="btn-cerrar-pin" class="btn-cerrar" aria-label="Cerrar">✕</button>
+        </div>
+
+        <form id="form-pin">
+            <label for="pin-salir">Escribe el PIN para salir del modo niño:</label>
+            <input type="password" id="pin-salir" class="input-pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required>
+            <button type="submit">Salir del modo niño</button>
+        </form>
+
+        <button type="button" id="btn-olvide-pin" class="enlace">Olvidé el PIN</button>
+        <p id="aviso-pin"></p>
     </dialog>
 
     <script type="module" src="app.js"></script>

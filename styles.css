@@ -83,6 +83,7 @@ header h1::before {
 }
 
 #btn-familia,
+#btn-modo-nino,
 #btn-salir {
     padding: 6px 14px;
     border: 2px solid rgba(255, 255, 255, 0.8);
@@ -94,7 +95,8 @@ header h1::before {
     transition: background 0.2s, color 0.2s;
 }
 
-#btn-familia {
+#btn-familia,
+#btn-modo-nino {
     background: rgba(255, 255, 255, 0.2);
 }
 
@@ -103,6 +105,7 @@ header h1::before {
 }
 
 #btn-familia:hover,
+#btn-modo-nino:hover,
 #btn-salir:hover {
     background: white;
     color: var(--morado);
@@ -709,15 +712,20 @@ body:not(.con-sesion) #barra-usuario {
     cursor: pointer;
 }
 
+/* ===== Mensajes de aviso (inicio de sesión, familia, modo niño, PIN) ===== */
 #aviso-login,
-#aviso-familia {
+#aviso-familia,
+#aviso-nino,
+#aviso-pin {
     margin-top: 14px;
     text-align: center;
     font-weight: 700;
 }
 
 #aviso-login:empty,
-#aviso-familia:empty {
+#aviso-familia:empty,
+#aviso-nino:empty,
+#aviso-pin:empty {
     display: none;
 }
 
@@ -729,21 +737,31 @@ body:not(.con-sesion) #barra-usuario {
     color: var(--verde);
 }
 
-/* ===== Ventana "Mi familia" ===== */
-#dialogo-familia {
-    width: min(520px, 92vw);
-    max-height: 88vh;
+/* ===== Ventanas emergentes (Mi familia, Modo niño, PIN) ===== */
+#dialogo-familia,
+.dialogo {
     margin: auto;
+    max-height: 88vh;
     padding: 24px;
     border: none;
-    border-top: 6px solid var(--morado);
     border-radius: var(--radio);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
     color: var(--texto);
     font-family: inherit;
 }
 
-#dialogo-familia::backdrop {
+#dialogo-familia {
+    width: min(520px, 92vw);
+    border-top: 6px solid var(--morado);
+}
+
+.dialogo {
+    width: min(460px, 92vw);
+    border-top: 6px solid var(--rosa);
+}
+
+#dialogo-familia::backdrop,
+.dialogo::backdrop {
     background: rgba(31, 27, 58, 0.45);
     backdrop-filter: blur(3px);
 }
@@ -771,4 +789,250 @@ body:not(.con-sesion) #barra-usuario {
     cursor: pointer;
 }
 
-.b
+.btn-cerrar:hover {
+    background-color: var(--morado);
+    color: white;
+}
+
+#dialogo-familia h3,
+.dialogo h3 {
+    margin-top: 16px;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--morado-oscuro);
+}
+
+#dialogo-familia .texto-ayuda,
+.dialogo .texto-ayuda {
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+}
+
+#dialogo-familia form,
+.dialogo form {
+    margin-bottom: 8px;
+}
+
+/* Listas de adultos e hijos */
+.lista-familia {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.lista-familia li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background-color: #faf8ff;
+    font-weight: 700;
+    word-break: break-word;
+}
+
+.lista-familia li.vacio-familia {
+    justify-content: center;
+    background-color: transparent;
+    border: 2px dashed var(--borde);
+    color: var(--texto-suave);
+    font-weight: 600;
+}
+
+.btn-quitar {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    background-color: white;
+    color: var(--rojo);
+    border: 2px solid var(--rojo);
+    border-radius: 999px;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-quitar:hover {
+    background-color: var(--rojo);
+    color: white;
+}
+
+/* Campo para escribir el PIN */
+.input-pin {
+    text-align: center;
+    font-size: 1.6rem !important;
+    letter-spacing: 12px;
+}
+
+/* Botones grandes para elegir hijo */
+.elegir-hijo {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.btn-elegir-hijo {
+    padding: 16px 10px;
+    border: 2px solid var(--borde);
+    border-radius: 16px;
+    background-color: #faf8ff;
+    color: var(--texto);
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s;
+}
+
+.btn-elegir-hijo:hover {
+    transform: translateY(-3px);
+    border-color: var(--morado);
+}
+
+.btn-elegir-hijo .emoji-grande {
+    display: block;
+    font-size: 2.2rem;
+    margin-bottom: 4px;
+}
+
+.mensaje-sin-hijos {
+    grid-column: 1 / -1;
+    padding: 14px;
+    text-align: center;
+    border: 2px dashed var(--borde);
+    border-radius: 12px;
+    color: var(--texto-suave);
+    font-weight: 600;
+}
+
+/* ===== Banda de modo niño ===== */
+#banda-nino {
+    display: none;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+#titulo-nino {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--morado-oscuro);
+}
+
+#btn-salir-nino {
+    padding: 6px 14px;
+    border: 2px solid var(--borde);
+    border-radius: 999px;
+    background-color: white;
+    color: var(--texto-suave);
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* ===== Mensaje flotante de felicitación ===== */
+#toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    z-index: 10;
+    padding: 14px 24px;
+    border-radius: 999px;
+    background: linear-gradient(120deg, var(--verde), var(--azul));
+    color: white;
+    font-size: 1.15rem;
+    font-weight: 800;
+    box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+    transform: translate(-50%, 200%);
+    transition: transform 0.35s ease;
+    pointer-events: none;
+}
+
+#toast.visible {
+    transform: translate(-50%, 0);
+}
+
+/* ===== Pantallas grandes (tablet y compu) ===== */
+@media (min-width: 768px) {
+    body {
+        grid-template-columns: 2fr 1fr;
+        grid-template-areas:
+            "header header"
+            "nav    nav"
+            "section aside"
+            "footer footer";
+        align-items: start;
+        padding: 24px;
+    }
+
+    header  { grid-area: header; }
+    nav     { grid-area: nav; }
+    section { grid-area: section; }
+    aside   { grid-area: aside; }
+    footer  { grid-area: footer; }
+
+    nav ul {
+        justify-content: flex-start;
+    }
+
+    header h1 {
+        font-size: 2.3rem;
+    }
+}
+
+/* Sin sesión, todo va en una sola columna (debe ir después de la media query) */
+body:not(.con-sesion) {
+    grid-template-columns: 1fr;
+    grid-template-areas: none;
+}
+
+body:not(.con-sesion) > * {
+    grid-area: auto;
+}
+
+/* ===== Lo que cambia en modo niño ===== */
+body.modo-nino #banda-nino {
+    display: flex;
+}
+
+body.modo-nino nav,
+body.modo-nino aside,
+body.modo-nino .encabezado-tareas,
+body.modo-nino #form-tarea,
+body.modo-nino #nombre-usuario,
+body.modo-nino #btn-familia,
+body.modo-nino #btn-modo-nino,
+body.modo-nino #btn-salir,
+body.modo-nino #lista-tareas li button {
+    display: none;
+}
+
+body.modo-nino section {
+    grid-column: 1 / -1;
+}
+
+body.modo-nino .descripcion {
+    font-size: 1.35rem;
+}
+
+body.modo-nino #lista-tareas li {
+    padding: 18px;
+}
+
+body.modo-nino #lista-tareas input[type="checkbox"] {
+    width: 32px;
+    height: 32px;
+}
+
+/* ===== Respeta a quien prefiere menos movimiento ===== */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+}
