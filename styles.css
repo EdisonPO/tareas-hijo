@@ -1234,3 +1234,109 @@ body.modo-nino #btn-sugerencias {
 body.modo-nino .acciones-tarea {
     display: none;
 }
+
+/* ===== Tocar una tarea para ver sus detalles ===== */
+#lista-tareas .info {
+    cursor: pointer;
+    border-radius: 8px;
+}
+
+#lista-tareas li:not(.realizada) .info:hover .descripcion {
+    color: var(--morado-oscuro);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+}
+
+#lista-tareas .info:focus-visible {
+    outline: 3px solid var(--morado);
+    outline-offset: 4px;
+}
+
+/* ===== Ventana "Detalle de la tarea" ===== */
+.detalle-descripcion {
+    margin: 6px 0 10px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    word-break: break-word;
+}
+
+.detalle-datos {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 12px;
+    margin: 16px 0;
+    padding: 14px;
+    border-radius: 14px;
+    background-color: #faf8ff;
+}
+
+.detalle-datos dt {
+    font-weight: 800;
+    color: var(--morado-oscuro);
+}
+
+.detalle-datos dd {
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.detalle-original {
+    margin-bottom: 14px;
+    font-size: 0.9rem;
+    color: var(--texto-suave);
+}
+
+.detalle-original summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--morado);
+}
+
+.botones-detalle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.botones-detalle button {
+    flex: 1;
+    min-width: 120px;
+}
+
+.btn-detalle-secundario,
+.btn-detalle-peligro {
+    padding: 10px;
+    border-radius: 10px;
+    background-color: white;
+    font-family: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-detalle-secundario {
+    border: 2px solid var(--morado);
+    color: var(--morado);
+}
+
+.btn-detalle-secundario:hover {
+    background-color: var(--morado);
+    color: white;
+}
+
+.btn-detalle-peligro {
+    border: 2px solid var(--rojo);
+    color: var(--rojo);
+}
+
+.btn-detalle-peligro:hover {
+    background-color: var(--rojo);
+    color: white;
+}
+
+/* En modo niño: solo marcar como hecha */
+body.modo-nino #btn-detalle-editar,
+body.modo-nino #btn-detalle-eliminar {
+    display: none;
+}

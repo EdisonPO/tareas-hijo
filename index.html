@@ -108,7 +108,7 @@
             <select id="hijo"></select>
 
             <label for="materia">Materia:</label>
-                        <select id="materia" required>
+            <select id="materia" required>
                 <option value="">-- Elige --</option>
                 <option value="matematicas">Matemáticas</option>
                 <option value="lengua">Lengua</option>
@@ -296,6 +296,30 @@
         <ul id="lista-avisos" class="lista-sugerencias"></ul>
 
         <button type="button" id="btn-agregar-todos" class="btn-principal">✅ Agregar todos</button>
+    </dialog>
+
+    <!-- Ventana "Detalle de la tarea" -->
+    <dialog id="dialogo-detalle" class="dialogo">
+        <div class="dialogo-encabezado">
+            <h2>Detalle de la tarea</h2>
+            <button type="button" id="btn-cerrar-detalle" class="btn-cerrar" aria-label="Cerrar">✕</button>
+        </div>
+
+        <p id="detalle-descripcion" class="detalle-descripcion"></p>
+        <div id="detalle-etiquetas" class="etiquetas"></div>
+
+        <dl id="detalle-datos" class="detalle-datos"></dl>
+
+        <details id="detalle-original" class="detalle-original">
+            <summary>Ver mensaje original</summary>
+            <p id="detalle-texto-original" class="texto-original"></p>
+        </details>
+
+        <div class="botones-detalle">
+            <button type="button" id="btn-detalle-estado" class="btn-aceptar-sugerencia"></button>
+            <button type="button" id="btn-detalle-editar" class="btn-detalle-secundario">✏️ Editar</button>
+            <button type="button" id="btn-detalle-eliminar" class="btn-detalle-peligro">Eliminar</button>
+        </div>
     </dialog>
 
     <script type="module" src="app.js"></script>

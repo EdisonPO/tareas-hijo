@@ -29,6 +29,7 @@ import {
 
 // Nuestro propio módulo: el analizador de mensajes
 import { analizarAvisos } from "./analizador.js?v=5";
+
 // Configuración de tu proyecto de Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyCirGXSV2z2yrSq-nXqFjUuTho8kGdaG6Q",
@@ -61,9 +62,12 @@ let filtroActual = "todas";      // "todas", "pendientes" o "realizadas"
 let filtroHijo = "todos";        // "todos" o el id de un hijo
 let modoNino = localStorage.getItem("modoNino");   // id del hijo en modo niño, o null
 let tareaEnEdicion = null;       // id de la tarea que se está editando (null = tarea nueva)
+let tareaEnDetalle = null;       // id de la tarea que se está viendo en "Detalle"
 let sugerenciaEnRevision = null; // id de la sugerencia de Gmail que se está convirtiendo en tarea
 let avisosPendientes = [];       // avisos encontrados en un mensaje con varios avisos
 let avisoEnRevision = null;      // el aviso de esa lista que se está revisando en el formulario
+let origenFormulario = { origen: "manual", texto: "" };   // de dónde viene la tarea del formulario
+let origenAvisos = { origen: "pegado", texto: "" };       // de dónde viene la lista de avisos
 let dejarDeEscucharTareas = null;
 let dejarDeEscucharFamilia = null;
 let dejarDeEscucharSugerencias = null;
@@ -120,6 +124,18 @@ const btnNueva = document.getElementById("btn-nueva");
 const btnCancelar = document.getElementById("btn-cancelar");
 const avisoAnalisis = document.getElementById("aviso-analisis");
 const toast = document.getElementById("toast");
+
+// Detalle de la tarea
+const dialogoDetalle = document.getElementById("dialogo-detalle");
+const btnCerrarDetalle = document.getElementById("btn-cerrar-detalle");
+const detalleDescripcion = document.getElementById("detalle-descripcion");
+const detalleEtiquetas = document.getElementById("detalle-etiquetas");
+const detalleDatos = document.getElementById("detalle-datos");
+const detalleOriginal = document.getElementById("detalle-original");
+const detalleTextoOriginal = document.getElementById("detalle-texto-original");
+const btnDetalleEstado = document.getElementById("btn-detalle-estado");
+const btnDetalleEditar = document.getElementById("btn-detalle-editar");
+const btnDetalleEliminar = document.getElementById("btn-detalle-eliminar");
 
 // Pegar mensaje
 const btnPegar = document.getElementById("btn-pegar");
@@ -195,6 +211,13 @@ const nombresTipos = {
     deber: "📘 Deber",
     comprar: "🛒 Comprar",
     evento: "📅 Evento"
+};
+
+const nombresOrigen = {
+    gmail: "📥 Correo del colegio",
+    pegado: "📋 Mensaje pegado",
+    compartido: "📲 Compartido desde otra app",
+    manual: "✍️ Escrita a mano"
 };
 
 
@@ -442,6 +465,11 @@ function escucharTareas() {
             tareas = resultado.docs.map(d => ({ id: d.id, ...d.data() }));
             mostrarTareas();
 
+            // Si el detalle de una tarea está abierto, actualizarlo con los datos nuevos
+            if (dialogoDetalle.open) {
+                dibujarDetalle();
+            }
+
             if (primeraVez) {
                 primeraVez = false;
                 revisarRecordatorios();
@@ -494,15 +522,117 @@ function detenerEscucha() {
     avisosPendientes = [];
     avisoEnRevision = null;
     tareaEnEdicion = null;
+    tareaEnDetalle = null;
     familia = { miembros: [], hijos: [] };
     filtroHijo = "todos";
 
-    [dialogoFamilia, dialogoNino, dialogoPin, dialogoPegar, dialogoSugerencias, dialogoAvisos].forEach(function (dialogo) {
+    [dialogoFamilia, dialogoNino, dialogoPin, dialogoPegar, dialogoSugerencias, dialogoAvisos, dialogoDetalle].forEach(function (dialogo) {
         if (dialogo.open) {
             dialogo.close();
         }
     });
 }
+
+
+// ===== Detalle de una tarea =====
+
+btnCerrarDetalle.addEventListener("click", () => dialogoDetalle.close());
+
+// Abre la ventana de detalle de una tarea
+function abrirDetalle(id) {
+    tareaEnDetalle = id;
+    dibujarDetalle();
+
+    if (!dialogoDetalle.open) {
+        dialogoDetalle.showModal();
+    }
+}
+
+// Llena la ventana con los datos actuales de la tarea
+function dibujarDetalle() {
+    const tarea = tareas.find(t => t.id === tareaEnDetalle);
+
+    // Si la tarea fue eliminada (por ti o por otra persona), cerrar la ventana
+    if (!tarea) {
+        if (dialogoDetalle.open) {
+            dialogoDetalle.close();
+        }
+        return;
+    }
+
+    // Descripción y etiquetas
+    detalleDescripcion.textContent = tarea.descripcion;
+
+    detalleEtiquetas.innerHTML = "";
+    detalleEtiquetas.append(
+        crearEtiqueta(nombresTipos[tarea.tipo] || tarea.tipo, "etiqueta-tipo"),
+        crearEtiqueta(nombresMaterias[tarea.materia] || tarea.materia, "etiqueta-materia")
+    );
+
+    // Datos en forma de "etiqueta: valor"
+    detalleDatos.innerHTML = "";
+
+    const hijo = buscarHijo(tarea.hijoId);
+    agregarFilaDetalle("Para", hijo ? `${hijo.emoji} ${hijo.nombre}` : "👨‍👩‍👧 Toda la familia");
+
+    const plazo = tarea.realizada ? "" : ` · ${describirPlazo(tarea.fecha)}`;
+    agregarFilaDetalle("Fecha", `${formatearFechaLarga(tarea.fecha)}${plazo}`);
+
+    agregarFilaDetalle("Estado", tarea.realizada ? "✅ Realizada" : "⏳ Pendiente");
+
+    if (tarea.creadoPor) {
+        const cuando = formatearMomento(tarea.creadoEn);
+        agregarFilaDetalle("Creada por", cuando ? `${tarea.creadoPor} · ${cuando}` : tarea.creadoPor);
+    }
+
+    if (tarea.editadoPor) {
+        const cuando = formatearMomento(tarea.editadoEn);
+        agregarFilaDetalle("Editada por", cuando ? `${tarea.editadoPor} · ${cuando}` : tarea.editadoPor);
+    }
+
+    if (tarea.origen) {
+        agregarFilaDetalle("Origen", nombresOrigen[tarea.origen] || tarea.origen);
+    }
+
+    // Mensaje original (solo si se guardó)
+    detalleOriginal.classList.toggle("oculto", !tarea.textoOriginal);
+    detalleTextoOriginal.textContent = tarea.textoOriginal || "";
+
+    // Botón de estado
+    btnDetalleEstado.textContent = tarea.realizada ? "↩️ Marcar como pendiente" : "✅ Marcar como hecha";
+}
+
+// Agrega una fila "dato: valor" a la lista de detalles
+function agregarFilaDetalle(etiqueta, valor) {
+    const dt = document.createElement("dt");
+    dt.textContent = etiqueta;
+
+    const dd = document.createElement("dd");
+    dd.textContent = valor;
+
+    detalleDatos.append(dt, dd);
+}
+
+// Botones de la ventana de detalle
+btnDetalleEstado.addEventListener("click", function () {
+    if (tareaEnDetalle) {
+        cambiarEstado(tareaEnDetalle);
+    }
+});
+
+btnDetalleEditar.addEventListener("click", function () {
+    const tarea = tareas.find(t => t.id === tareaEnDetalle);
+    if (tarea) {
+        dialogoDetalle.close();
+        editarTarea(tarea);
+    }
+});
+
+btnDetalleEliminar.addEventListener("click", function () {
+    if (tareaEnDetalle) {
+        eliminarTarea(tareaEnDetalle);
+    }
+});
 
 
 // ===== Avisos del colegio (sugerencias desde Gmail) =====
@@ -573,6 +703,12 @@ function revisarSugerencia(sugerencia) {
     sugerenciaEnRevision = sugerencia.id;
 
     llenarFormularioCon(sugerencia);
+
+    // Recordar el correo original para guardarlo con la tarea
+    origenFormulario = {
+        origen: "gmail",
+        texto: `${sugerencia.asunto || ""}\n\n${sugerencia.textoOriginal || ""}`.trim()
+    };
 
     avisoAnalisis.textContent = sugerencia.fecha
         ? "📥 Aviso del correo. Revisa los datos y elige para quién es."
@@ -655,12 +791,15 @@ function procesarTexto(texto, origen) {
     const avisos = analizarAvisos(texto);
 
     if (avisos.length > 1) {
-        mostrarAvisos(avisos);
+        mostrarAvisos(avisos, { origen: origen, texto: texto.trim() });
         return;
     }
 
     const resultado = avisos[0];
     llenarFormularioCon(resultado);
+
+    // Recordar el mensaje original para guardarlo con la tarea
+    origenFormulario = { origen: origen, texto: texto.trim() };
 
     const inicio = origen === "compartido" ? "📲 Mensaje compartido." : "✨ Datos detectados del mensaje.";
     avisoAnalisis.textContent = resultado.fecha
@@ -688,8 +827,9 @@ function llenarFormularioCon(resultado) {
 btnCerrarAvisos.addEventListener("click", () => dialogoAvisos.close());
 
 // Muestra la ventana con la lista de avisos encontrados
-function mostrarAvisos(avisos) {
+function mostrarAvisos(avisos, origen) {
     avisosPendientes = avisos;
+    origenAvisos = origen;
     selectHijoAvisos.value = filtroHijo !== "todos" ? filtroHijo : "";
     dibujarAvisos();
     abrirDialogoAvisos();
@@ -748,6 +888,7 @@ function revisarAviso(aviso) {
 
     llenarFormularioCon(aviso);
     avisoEnRevision = aviso;
+    origenFormulario = { ...origenAvisos };
     selectHijo.value = selectHijoAvisos.value;
 
     avisoAnalisis.textContent = aviso.fecha
@@ -788,6 +929,8 @@ btnAgregarTodos.addEventListener("click", async function () {
                 fecha: aviso.fecha,
                 hijoId: selectHijoAvisos.value,
                 realizada: false,
+                origen: origenAvisos.origen,
+                textoOriginal: origenAvisos.texto.slice(0, 3000),
                 creadoPor: auth.currentUser.email,
                 creadoEn: serverTimestamp()
             });
@@ -1227,6 +1370,7 @@ async function subirTareasLocales() {
             fecha: t.fecha,
             realizada: t.realizada,
             hijoId: "",
+            origen: "manual",
             creadoPor: auth.currentUser.email,
             creadoEn: serverTimestamp()
         });
@@ -1242,6 +1386,7 @@ formulario.addEventListener("submit", async function (e) {
     const idEdicion = tareaEnEdicion;
     const idSugerencia = sugerenciaEnRevision;
     const aviso = avisoEnRevision;
+    const origen = { ...origenFormulario };
 
     // Los datos que se pueden escribir en el formulario
     const datos = {
@@ -1266,10 +1411,12 @@ formulario.addEventListener("submit", async function (e) {
             return;
         }
 
-        // B) Agregar una tarea nueva
+        // B) Agregar una tarea nueva (con su origen y el mensaje original, si lo hay)
         const nuevaTarea = await addDoc(refTareas, {
             ...datos,
             realizada: false,
+            origen: origen.origen,
+            textoOriginal: origen.texto.slice(0, 3000),
             creadoPor: auth.currentUser.email,
             creadoEn: serverTimestamp()
         });
@@ -1324,6 +1471,9 @@ function editarTarea(tarea) {
 // Cambia una tarea de pendiente a realizada, o al revés
 async function cambiarEstado(id) {
     const tarea = tareas.find(t => t.id === id);
+    if (!tarea) {
+        return;
+    }
     const quedaraHecha = !tarea.realizada;
 
     // En modo niño, felicitar al marcar una tarea como hecha
@@ -1368,8 +1518,9 @@ function abrirFormulario() {
     btnNueva.classList.add("oculto");
     avisoAnalisis.textContent = "";
 
-    // Por defecto, el formulario es para agregar (no para editar)
+    // Por defecto, el formulario es para agregar una tarea escrita a mano
     tareaEnEdicion = null;
+    origenFormulario = { origen: "manual", texto: "" };
     tituloForm.textContent = "Registrar tarea";
     btnGuardarTarea.textContent = "Agregar";
 
@@ -1387,6 +1538,7 @@ function cerrarFormulario() {
     sugerenciaEnRevision = null;
     avisoEnRevision = null;
     tareaEnEdicion = null;
+    origenFormulario = { origen: "manual", texto: "" };
     tituloForm.textContent = "Registrar tarea";
     btnGuardarTarea.textContent = "Agregar";
 }
@@ -1433,6 +1585,48 @@ function obtenerHoy(diasExtra = 0) {
 function formatearFecha(fecha) {
     const [anio, mes, dia] = fecha.split("-");
     return `${dia}/${mes}/${anio}`;
+}
+
+// Convierte "2026-10-12" en "lunes, 12 de octubre de 2026"
+function formatearFechaLarga(fecha) {
+    const [anio, mes, dia] = fecha.split("-").map(Number);
+    return new Date(anio, mes - 1, dia).toLocaleDateString("es-EC", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+    });
+}
+
+// Cuántos días faltan o pasaron: "es para hoy", "faltan 3 días", "venció hace 2 días"
+function describirPlazo(fecha) {
+    const [anio, mes, dia] = fecha.split("-").map(Number);
+    const limite = new Date(anio, mes - 1, dia);
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    const dias = Math.round((limite - hoy) / 86400000);
+
+    if (dias === 0) return "es para hoy";
+    if (dias === 1) return "es para mañana";
+    if (dias > 1) return `faltan ${dias} días`;
+    if (dias === -1) return "venció ayer";
+    return `venció hace ${-dias} días`;
+}
+
+// Convierte la fecha y hora guardada por Firestore en texto: "5 oct 2026, 14:30"
+function formatearMomento(momento) {
+    if (!momento || typeof momento.toDate !== "function") {
+        return "";
+    }
+    return momento.toDate().toLocaleString("es-EC", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+    });
 }
 
 // Crea una etiqueta pequeña (<span>) con un texto y una clase de estilo
@@ -1524,8 +1718,19 @@ function mostrarTareas() {
         casilla.checked = tarea.realizada;
         casilla.addEventListener("change", () => cambiarEstado(tarea.id));
 
+        // Zona de información: al tocarla se abren los detalles
         const info = document.createElement("div");
         info.classList.add("info");
+        info.tabIndex = 0;
+        info.title = "Ver detalles";
+        info.setAttribute("role", "button");
+        info.addEventListener("click", () => abrirDetalle(tarea.id));
+        info.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                abrirDetalle(tarea.id);
+            }
+        });
 
         const descripcion = document.createElement("p");
         descripcion.classList.add("descripcion");
