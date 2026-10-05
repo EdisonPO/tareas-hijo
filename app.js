@@ -28,8 +28,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // Nuestro propio módulo: el analizador de mensajes
-import { analizarAvisos } from "./analizador.js?v=3";
-
+import { analizarAvisos } from "./analizador.js?v=4";
 // Configuración de tu proyecto de Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyCirGXSV2z2yrSq-nXqFjUuTho8kGdaG6Q",
