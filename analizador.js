@@ -17,7 +17,8 @@ const MATERIAS = [
     { valor: "matematicas", patron: /matematic/ },
     { valor: "lengua", patron: /lengua|literatura|lectura|comunicacion|redaccion/ },
     { valor: "ciencias", patron: /ciencias|naturales|biologia|quimica/ },
-    { valor: "ingles", patron: /ingles|english/ }
+    { valor: "ingles", patron: /ingles|english/ },
+    { valor: "religion", patron: /religion|catequesis|biblia|evangelio|eucaristia|misa\b/ }
 ];
 
 // Verbos de acción: forma escrita (sin tildes) → instrucción en infinitivo
