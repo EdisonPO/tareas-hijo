@@ -15,6 +15,7 @@ import {
     getFirestore,
     doc,
     getDoc,
+    setDoc,
     collection,
     addDoc,
     updateDoc,
@@ -26,6 +27,11 @@ import {
     query,
     where
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+    getMessaging,
+    getToken,
+    isSupported
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 
 // Nuestro propio módulo: el analizador de mensajes
 import { analizarAvisos } from "./analizador.js?v=5";
@@ -41,6 +47,9 @@ const firebaseConfig = {
     measurementId: "G-EQXPP9NBB3"
 };
 
+// 👇 Clave pública para notificaciones web (Configuración del proyecto → Cloud Messaging)
+const VAPID_KEY = "BK-hfcw5-w5TvyrFDsvFSSlk6vMj01OVbHzY5iDw2zO_4PZWdF4aCSCpWfgGvNGoU46HHBFzGx7BNohUnIzQ_ls";
+
 // Conectar con Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -52,6 +61,18 @@ const FAMILIA_ID = "mi-familia";
 const refFamilia = doc(db, "familias", FAMILIA_ID);
 const refTareas = collection(db, "familias", FAMILIA_ID, "tareas");
 const refSugerencias = collection(db, "familias", FAMILIA_ID, "sugerencias");
+const refDispositivos = collection(db, "familias", FAMILIA_ID, "dispositivos");
+
+// Cada celular o computadora tiene un identificador propio, guardado en el dispositivo
+let idDispositivo = localStorage.getItem("idDispositivo");
+if (!idDispositivo) {
+    idDispositivo = crypto.randomUUID();
+    localStorage.setItem("idDispositivo", idDispositivo);
+}
+
+// Horas que se pueden elegir (formato de 24 horas) y las que vienen marcadas por defecto
+const HORAS_DISPONIBLES = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
+const HORAS_POR_DEFECTO = [9, 15, 19];
 
 
 // ===== Estado de la app =====
@@ -68,6 +89,9 @@ let avisosPendientes = [];       // avisos encontrados en un mensaje con varios 
 let avisoEnRevision = null;      // el aviso de esa lista que se está revisando en el formulario
 let origenFormulario = { origen: "manual", texto: "" };   // de dónde viene la tarea del formulario
 let origenAvisos = { origen: "pegado", texto: "" };       // de dónde viene la lista de avisos
+let configRecordatorios = { activo: false, horas: HORAS_POR_DEFECTO, contenido: "urgentes", avisosColegio: true };
+let configGuardada = false;      // ¿este dispositivo ya guardó alguna vez su configuración?
+let horasElegidas = new Set();   // horas marcadas en la ventana de recordatorios
 let dejarDeEscucharTareas = null;
 let dejarDeEscucharFamilia = null;
 let dejarDeEscucharSugerencias = null;
@@ -194,8 +218,17 @@ const btnOlvidePin = document.getElementById("btn-olvide-pin");
 const avisoPin = document.getElementById("aviso-pin");
 
 // Recordatorios
-const btnNotificaciones = document.getElementById("btn-notificaciones");
+const btnRecordatorios = document.getElementById("btn-recordatorios");
 const estadoNotificaciones = document.getElementById("estado-notificaciones");
+const dialogoRecordatorios = document.getElementById("dialogo-recordatorios");
+const btnCerrarRecordatorios = document.getElementById("btn-cerrar-recordatorios");
+const chkRecActivo = document.getElementById("rec-activo");
+const recOpciones = document.getElementById("rec-opciones");
+const recHoras = document.getElementById("rec-horas");
+const chkRecAvisos = document.getElementById("rec-avisos");
+const btnGuardarRecordatorios = document.getElementById("btn-guardar-recordatorios");
+const btnProbarRecordatorio = document.getElementById("btn-probar-recordatorio");
+const avisoRecordatorios = document.getElementById("aviso-recordatorios");
 
 // "Traductores": del value guardado al nombre que se muestra
 const nombresMaterias = {
@@ -368,6 +401,7 @@ async function revisarUsuario(usuario) {
     escucharFamilia();
     escucharTareas();
     escucharSugerencias();
+    cargarConfigRecordatorios();
 
     // 5. Si la app se abrió desde "Compartir", procesar ese texto
     procesarTextoCompartido();
@@ -457,8 +491,6 @@ function escucharFamilia() {
 
 // Escucha la colección de tareas
 function escucharTareas() {
-    let primeraVez = true;
-
     dejarDeEscucharTareas = onSnapshot(
         refTareas,
         function (resultado) {
@@ -468,11 +500,6 @@ function escucharTareas() {
             // Si el detalle de una tarea está abierto, actualizarlo con los datos nuevos
             if (dialogoDetalle.open) {
                 dibujarDetalle();
-            }
-
-            if (primeraVez) {
-                primeraVez = false;
-                revisarRecordatorios();
             }
         },
         manejarErrorEscucha
@@ -526,7 +553,10 @@ function detenerEscucha() {
     familia = { miembros: [], hijos: [] };
     filtroHijo = "todos";
 
-    [dialogoFamilia, dialogoNino, dialogoPin, dialogoPegar, dialogoSugerencias, dialogoAvisos, dialogoDetalle].forEach(function (dialogo) {
+    [
+        dialogoFamilia, dialogoNino, dialogoPin, dialogoPegar,
+        dialogoSugerencias, dialogoAvisos, dialogoDetalle, dialogoRecordatorios
+    ].forEach(function (dialogo) {
         if (dialogo.open) {
             dialogo.close();
         }
@@ -1629,6 +1659,13 @@ function formatearMomento(momento) {
     });
 }
 
+// 9 → "9:00 a. m.", 15 → "3:00 p. m."
+function formatearHora(hora) {
+    const sufijo = hora < 12 ? "a. m." : "p. m.";
+    const hora12 = hora % 12 === 0 ? 12 : hora % 12;
+    return `${hora12}:00 ${sufijo}`;
+}
+
 // Crea una etiqueta pequeña (<span>) con un texto y una clase de estilo
 function crearEtiqueta(texto, clase) {
     const span = document.createElement("span");
@@ -1791,74 +1828,238 @@ function mostrarTareas() {
 }
 
 
-// ===== Recordatorios con notificaciones =====
+// ===== Recordatorios con notificaciones push (configuración propia de cada dispositivo) =====
 
-function actualizarBotonNotificaciones() {
-    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-        btnNotificaciones.classList.add("oculto");
-        estadoNotificaciones.textContent = "Este navegador no permite notificaciones. En iPhone, primero instala la app en la pantalla de inicio.";
+// Abrir la ventana con la configuración actual de este dispositivo
+btnRecordatorios.addEventListener("click", function () {
+    limpiarAvisoRecordatorios();
+
+    // Si nunca se configuró, mostrarlo activado con las horas por defecto
+    chkRecActivo.checked = configGuardada ? configRecordatorios.activo : true;
+    horasElegidas = new Set(configRecordatorios.horas);
+    chkRecAvisos.checked = configRecordatorios.avisosColegio;
+
+    const radio = document.querySelector(`input[name="rec-contenido"][value="${configRecordatorios.contenido}"]`);
+    if (radio) {
+        radio.checked = true;
+    }
+
+    recOpciones.classList.toggle("oculto", !chkRecActivo.checked);
+    dibujarHoras();
+    dialogoRecordatorios.showModal();
+});
+
+btnCerrarRecordatorios.addEventListener("click", () => dialogoRecordatorios.close());
+
+// Mostrar u ocultar las opciones al activar o desactivar
+chkRecActivo.addEventListener("change", function () {
+    recOpciones.classList.toggle("oculto", !chkRecActivo.checked);
+});
+
+// Dibuja los botones de las horas (los elegidos se ven pintados)
+function dibujarHoras() {
+    recHoras.innerHTML = "";
+
+    HORAS_DISPONIBLES.forEach(function (hora) {
+        const boton = document.createElement("button");
+        boton.type = "button";
+        boton.className = "chip-hora";
+        boton.textContent = formatearHora(hora);
+
+        if (horasElegidas.has(hora)) {
+            boton.classList.add("activo");
+        }
+
+        boton.addEventListener("click", function () {
+            if (horasElegidas.has(hora)) {
+                horasElegidas.delete(hora);
+            } else {
+                horasElegidas.add(hora);
+            }
+            boton.classList.toggle("activo");
+        });
+
+        recHoras.appendChild(boton);
+    });
+}
+
+// Guardar la configuración de este dispositivo en Firestore
+btnGuardarRecordatorios.addEventListener("click", async function () {
+    limpiarAvisoRecordatorios();
+
+    const activo = chkRecActivo.checked;
+    const horas = [...horasElegidas].sort((a, b) => a - b);
+    const radioElegido = document.querySelector('input[name="rec-contenido"]:checked');
+    const contenido = radioElegido ? radioElegido.value : "urgentes";
+    const avisosColegio = chkRecAvisos.checked;
+
+    if (activo && horas.length === 0 && !avisosColegio) {
+        mostrarAvisoRecordatorios("Elige al menos una hora, o activa los avisos del colegio.", true);
         return;
     }
 
-    if (Notification.permission === "granted") {
-        btnNotificaciones.classList.add("oculto");
-        estadoNotificaciones.textContent = "🔔 Recordatorios activados";
-    } else if (Notification.permission === "denied") {
-        btnNotificaciones.classList.add("oculto");
-        estadoNotificaciones.textContent = "Las notificaciones están bloqueadas. Actívalas desde el candado junto a la dirección de la página.";
-    } else {
-        btnNotificaciones.classList.remove("oculto");
-        estadoNotificaciones.textContent = "";
+    btnGuardarRecordatorios.disabled = true;
+
+    try {
+        const refEste = doc(refDispositivos, idDispositivo);
+
+        if (activo) {
+            // Pedir permiso y obtener la "dirección" de este dispositivo para recibir notificaciones
+            const token = await obtenerTokenPush(true);
+
+            await setDoc(refEste, {
+                token: token,
+                usuario: auth.currentUser.email,
+                horas: horas,
+                contenido: contenido,
+                avisosColegio: avisosColegio,
+                activo: true,
+                navegador: navigator.userAgent.slice(0, 150),
+                actualizado: serverTimestamp()
+            }, { merge: true });
+        } else {
+            await setDoc(refEste, {
+                activo: false,
+                actualizado: serverTimestamp()
+            }, { merge: true });
+        }
+
+        configRecordatorios = { activo, horas, contenido, avisosColegio };
+        configGuardada = true;
+        actualizarEstadoRecordatorios();
+        dialogoRecordatorios.close();
+        mostrarToast(activo ? "🔔 Recordatorios guardados" : "🔕 Recordatorios desactivados");
+    } catch (error) {
+        console.error("Error al guardar los recordatorios:", error);
+        mostrarAvisoRecordatorios(traducirErrorRecordatorios(error), true);
+    } finally {
+        btnGuardarRecordatorios.disabled = false;
+    }
+});
+
+// Pide permiso (si hace falta) y devuelve el token de este dispositivo
+async function obtenerTokenPush(pedirPermiso) {
+    if (!("Notification" in window) || !(await isSupported())) {
+        throw new Error("no-soportado");
+    }
+
+    if (pedirPermiso) {
+        await Notification.requestPermission();
+    }
+
+    if (Notification.permission !== "granted") {
+        throw new Error("sin-permiso");
+    }
+
+    const registro = await navigator.serviceWorker.ready;
+    const messaging = getMessaging(app);
+
+    return getToken(messaging, {
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: registro
+    });
+}
+
+// Al entrar a la app: leer la configuración de este dispositivo y renovar su token
+async function cargarConfigRecordatorios() {
+    try {
+        const resultado = await getDoc(doc(refDispositivos, idDispositivo));
+
+        if (resultado.exists()) {
+            const datos = resultado.data();
+            configGuardada = true;
+            configRecordatorios = {
+                activo: Boolean(datos.activo),
+                horas: datos.horas || HORAS_POR_DEFECTO,
+                contenido: datos.contenido || "urgentes",
+                avisosColegio: datos.avisosColegio !== false
+            };
+        }
+
+        actualizarEstadoRecordatorios();
+
+        // El token puede cambiar con el tiempo: actualizarlo en silencio
+        if (configRecordatorios.activo && "Notification" in window && Notification.permission === "granted") {
+            const token = await obtenerTokenPush(false);
+            await setDoc(doc(refDispositivos, idDispositivo), {
+                token: token,
+                actualizado: serverTimestamp()
+            }, { merge: true });
+        }
+    } catch (error) {
+        console.error("No se pudo cargar la configuración de recordatorios:", error);
     }
 }
 
-async function revisarRecordatorios(forzar = false) {
-    if (!("Notification" in window) || Notification.permission !== "granted") {
+// Texto debajo del botón: a qué horas llegan los recordatorios en este dispositivo
+function actualizarEstadoRecordatorios() {
+    if (!configRecordatorios.activo) {
+        estadoNotificaciones.textContent = configGuardada
+            ? "🔕 Recordatorios desactivados en este dispositivo"
+            : "Aún no activas los recordatorios en este dispositivo";
         return;
     }
 
-    const hoy = obtenerHoy();
-
-    if (!forzar && localStorage.getItem("ultimoAviso") === hoy) {
+    if (configRecordatorios.horas.length === 0) {
+        estadoNotificaciones.textContent = "🔔 Solo avisos nuevos del colegio";
         return;
     }
 
-    const manana = obtenerHoy(1);
-    const pendientes = tareas.filter(t => !t.realizada);
-    const atrasadas = pendientes.filter(t => t.fecha < hoy).length;
-    const paraHoy = pendientes.filter(t => t.fecha === hoy).length;
-    const paraManana = pendientes.filter(t => t.fecha === manana).length;
+    const horas = configRecordatorios.horas.map(formatearHora).join(", ");
+    estadoNotificaciones.textContent = `🔔 Recordatorios a las ${horas}`;
+}
 
-    const partes = [];
-    if (atrasadas > 0) partes.push(`⚠️ ${atrasadas} atrasada(s)`);
-    if (paraHoy > 0) partes.push(`⏰ ${paraHoy} para hoy`);
-    if (paraManana > 0) partes.push(`👀 ${paraManana} para mañana`);
+// Muestra una notificación de ejemplo en este dispositivo
+btnProbarRecordatorio.addEventListener("click", async function () {
+    limpiarAvisoRecordatorios();
 
-    let mensaje = partes.join(" · ");
+    if (!("Notification" in window)) {
+        mostrarAvisoRecordatorios(traducirErrorRecordatorios(new Error("no-soportado")), true);
+        return;
+    }
 
-    if (partes.length === 0) {
-        if (!forzar) {
-            return;
-        }
-        mensaje = "¡Todo al día! No hay tareas urgentes 🎉";
+    await Notification.requestPermission();
+
+    if (Notification.permission !== "granted") {
+        mostrarAvisoRecordatorios(traducirErrorRecordatorios(new Error("sin-permiso")), true);
+        return;
     }
 
     const registro = await navigator.serviceWorker.ready;
     registro.showNotification("📚 Tareas al Día", {
-        body: mensaje,
+        body: "⚠️ 1 atrasada · ⏰ 2 para hoy\n• Así se verán tus recordatorios",
         icon: "iconos/android-chrome-192x192.png",
         badge: "iconos/android-chrome-192x192.png",
-        tag: "resumen-diario"
+        tag: "prueba"
     });
+});
 
-    localStorage.setItem("ultimoAviso", hoy);
+// Convierte los errores de notificaciones en mensajes entendibles
+function traducirErrorRecordatorios(error) {
+    if (error.message === "no-soportado") {
+        return "Este navegador no permite notificaciones. En iPhone, primero instala la app en la pantalla de inicio (iOS 16.4 o más reciente).";
+    }
+    if (error.message === "sin-permiso") {
+        return "No diste permiso para mostrar notificaciones. Actívalo desde el candado junto a la dirección o en los ajustes de la app.";
+    }
+    if (error.code === "permission-denied") {
+        return "No se pudo guardar. Revisa que hayas publicado las reglas nuevas de Firestore.";
+    }
+    if (String(error.code || "").startsWith("messaging/")) {
+        return "No se pudo registrar este dispositivo para notificaciones. Revisa la clave VAPID y tu conexión.";
+    }
+    return "No se pudo guardar. Revisa tu conexión a internet.";
 }
 
-btnNotificaciones.addEventListener("click", async function () {
-    await Notification.requestPermission();
-    actualizarBotonNotificaciones();
-    revisarRecordatorios(true);
-});
+function mostrarAvisoRecordatorios(texto, esError) {
+    avisoRecordatorios.textContent = texto;
+    avisoRecordatorios.className = esError ? "aviso-error" : "aviso-ok";
+}
+
+function limpiarAvisoRecordatorios() {
+    avisoRecordatorios.textContent = "";
+    avisoRecordatorios.className = "";
+}
 
 
 // ===== Arranque de la app =====
@@ -1868,6 +2069,3 @@ if ("serviceWorker" in navigator) {
         .then(() => console.log("Service worker registrado"))
         .catch(error => console.log("Error al registrar el service worker:", error));
 }
-
-actualizarBotonNotificaciones();
-setInterval(revisarRecordatorios, 60 * 60 * 1000);

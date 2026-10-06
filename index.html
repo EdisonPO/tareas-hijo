@@ -146,7 +146,7 @@
         <p>Pendiente de comprar: <span id="pendiente-comprar">0</span></p>
         <ul id="lista-compras"></ul>
 
-        <button type="button" id="btn-notificaciones" class="oculto">🔔 Activar recordatorios</button>
+        <button type="button" id="btn-recordatorios">🔔 Configurar recordatorios</button>
         <div id="estado-notificaciones"></div>
     </aside>
 
@@ -320,6 +320,45 @@
             <button type="button" id="btn-detalle-editar" class="btn-detalle-secundario">✏️ Editar</button>
             <button type="button" id="btn-detalle-eliminar" class="btn-detalle-peligro">Eliminar</button>
         </div>
+    </dialog>
+
+    <!-- Ventana "Recordatorios" (configuración propia de cada dispositivo) -->
+    <dialog id="dialogo-recordatorios" class="dialogo">
+        <div class="dialogo-encabezado">
+            <h2>Recordatorios</h2>
+            <button type="button" id="btn-cerrar-recordatorios" class="btn-cerrar" aria-label="Cerrar">✕</button>
+        </div>
+
+        <p class="texto-ayuda">Te llegarán aunque la app esté cerrada. Esta configuración es solo para este dispositivo: cada persona elige sus propias horas en su celular.</p>
+
+        <label class="opcion-check opcion-principal">
+            <input type="checkbox" id="rec-activo">
+            Activar recordatorios en este dispositivo
+        </label>
+
+        <div id="rec-opciones">
+            <h3>¿A qué horas?</h3>
+            <div id="rec-horas" class="rec-horas"></div>
+
+            <h3>¿Qué incluir?</h3>
+            <label class="opcion-check">
+                <input type="radio" name="rec-contenido" value="urgentes">
+                Solo lo urgente (atrasadas, para hoy y para mañana)
+            </label>
+            <label class="opcion-check">
+                <input type="radio" name="rec-contenido" value="todas">
+                Todas las tareas pendientes
+            </label>
+            <label class="opcion-check">
+                <input type="checkbox" id="rec-avisos">
+                Avisarme cuando llegue un aviso nuevo del colegio
+            </label>
+        </div>
+
+        <button type="button" id="btn-guardar-recordatorios" class="btn-principal">Guardar</button>
+        <button type="button" id="btn-probar-recordatorio" class="enlace">Ver cómo se ve una notificación</button>
+
+        <p id="aviso-recordatorios"></p>
     </dialog>
 
     <script type="module" src="app.js"></script>

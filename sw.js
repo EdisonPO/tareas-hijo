@@ -1,5 +1,5 @@
 // Nombre de la caché. Si cambias esta versión, se crea una caché nueva
-const CACHE = "tareas-v10";
+const CACHE = "tareas-v11";
 
 // Archivos que se guardan para que la app abra más rápido
 const ARCHIVOS = [
@@ -57,16 +57,44 @@ self.addEventListener("fetch", function (e) {
     );
 });
 
-// 4. Al tocar una notificación: abrir la app o traerla al frente
+// 4. Llega una notificación desde el servidor (aunque la app esté cerrada)
+self.addEventListener("push", function (e) {
+    let carga = {};
+
+    try {
+        carga = e.data ? e.data.json() : {};
+    } catch (error) {
+        carga = {};
+    }
+
+    // Apps Script envía los datos en "data"; por si acaso, también se acepta "notification"
+    const info = carga.data || carga.notification || {};
+
+    const titulo = info.titulo || info.title || "📚 Tareas al Día";
+    const opciones = {
+        body: info.cuerpo || info.body || "Tienes tareas pendientes",
+        icon: "iconos/android-chrome-192x192.png",
+        badge: "iconos/android-chrome-192x192.png",
+        tag: info.etiqueta || "tareas-al-dia",
+        renotify: true,
+        data: { enlace: info.enlace || "./" }
+    };
+
+    e.waitUntil(self.registration.showNotification(titulo, opciones));
+});
+
+// 5. Al tocar una notificación: abrir la app o traerla al frente
 self.addEventListener("notificationclick", function (e) {
     e.notification.close();
+
+    const enlace = (e.notification.data && e.notification.data.enlace) || "./";
 
     e.waitUntil(
         clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (ventanas) {
             if (ventanas.length > 0) {
                 return ventanas[0].focus();
             }
-            return clients.openWindow("./");
+            return clients.openWindow(enlace);
         })
     );
 });
