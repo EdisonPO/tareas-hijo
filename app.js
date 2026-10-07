@@ -9,6 +9,7 @@ import {
     createUserWithEmailAndPassword,
     sendEmailVerification,
     sendPasswordResetEmail,
+    signInAnonymously,
     signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
@@ -25,7 +26,8 @@ import {
     arrayUnion,
     arrayRemove,
     query,
-    where
+    where,
+    Timestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
     getMessaging,
@@ -62,6 +64,8 @@ const refFamilia = doc(db, "familias", FAMILIA_ID);
 const refTareas = collection(db, "familias", FAMILIA_ID, "tareas");
 const refSugerencias = collection(db, "familias", FAMILIA_ID, "sugerencias");
 const refDispositivos = collection(db, "familias", FAMILIA_ID, "dispositivos");
+const refCodigos = collection(db, "familias", FAMILIA_ID, "codigos");
+const refEstudiantes = collection(db, "familias", FAMILIA_ID, "estudiantes");
 
 // Cada celular o computadora tiene un identificador propio, guardado en el dispositivo
 let idDispositivo = localStorage.getItem("idDispositivo");
@@ -74,11 +78,19 @@ if (!idDispositivo) {
 const HORAS_DISPONIBLES = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
 const HORAS_POR_DEFECTO = [9, 15, 19];
 
+// Códigos de vinculación: letras y números fáciles de leer (sin O, 0, I, 1) y duración
+const LETRAS_CODIGO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const MINUTOS_CODIGO = 15;
+
 
 // ===== Estado de la app =====
 let tareas = [];
 let sugerencias = [];
+let estudiantes = [];            // celulares de los hijos vinculados (lo ven los adultos)
 let familia = { miembros: [], hijos: [] };
+let estudiante = null;           // en el celular del hijo: { hijoId, nombre, emoji }
+let vinculando = false;          // true mientras el celular del hijo se está vinculando
+let avisoPendiente = "";         // mensaje para mostrar en la pantalla de inicio
 let filtroActual = "todas";      // "todas", "pendientes" o "realizadas"
 let filtroHijo = "todos";        // "todos" o el id de un hijo
 let modoNino = localStorage.getItem("modoNino");   // id del hijo en modo niño, o null
@@ -95,6 +107,7 @@ let horasElegidas = new Set();   // horas marcadas en la ventana de recordatorio
 let dejarDeEscucharTareas = null;
 let dejarDeEscucharFamilia = null;
 let dejarDeEscucharSugerencias = null;
+let dejarDeEscucharEstudiantes = null;
 let modoRegistro = false;        // false = iniciar sesión, true = crear cuenta
 let temporizadorToast = null;
 
@@ -135,6 +148,14 @@ const btnSalirMensaje = document.getElementById("btn-salir-mensaje");
 const avisoLogin = document.getElementById("aviso-login");
 const nombreUsuario = document.getElementById("nombre-usuario");
 const btnSalir = document.getElementById("btn-salir");
+
+// Acceso de estudiantes
+const btnSoyEstudiante = document.getElementById("btn-soy-estudiante");
+const panelEstudiante = document.getElementById("panel-estudiante");
+const formEstudiante = document.getElementById("form-estudiante");
+const inputCodigoEstudiante = document.getElementById("codigo-estudiante");
+const btnEntrarEstudiante = document.getElementById("btn-entrar-estudiante");
+const btnVolverAcceso = document.getElementById("btn-volver-acceso");
 
 // Tareas
 const formulario = document.getElementById("form-tarea");
@@ -189,12 +210,21 @@ const dialogoFamilia = document.getElementById("dialogo-familia");
 const btnCerrarFamilia = document.getElementById("btn-cerrar-familia");
 const listaAdultos = document.getElementById("lista-adultos");
 const listaHijos = document.getElementById("lista-hijos");
+const listaEstudiantes = document.getElementById("lista-estudiantes");
 const formAdulto = document.getElementById("form-adulto");
 const inputCorreoAdulto = document.getElementById("correo-adulto");
 const formHijo = document.getElementById("form-hijo");
 const inputNombreHijo = document.getElementById("nombre-hijo");
 const selectEmojiHijo = document.getElementById("emoji-hijo");
 const avisoFamilia = document.getElementById("aviso-familia");
+
+// Código de vinculación
+const dialogoCodigo = document.getElementById("dialogo-codigo");
+const btnCerrarCodigo = document.getElementById("btn-cerrar-codigo");
+const btnListoCodigo = document.getElementById("btn-listo-codigo");
+const textoCodigoPara = document.getElementById("texto-codigo-para");
+const codigoGenerado = document.getElementById("codigo-generado");
+const textoExpiraCodigo = document.getElementById("texto-expira-codigo");
 
 // Modo niño
 const btnModoNino = document.getElementById("btn-modo-nino");
@@ -345,6 +375,99 @@ btnReintentar.addEventListener("click", async function () {
 btnSalir.addEventListener("click", () => signOut(auth));
 btnSalirMensaje.addEventListener("click", () => signOut(auth));
 
+
+// ===== Acceso de estudiantes: eventos =====
+
+btnSoyEstudiante.addEventListener("click", function () {
+    limpiarAviso();
+    formEstudiante.reset();
+    panelAcceso.classList.add("oculto");
+    panelMensaje.classList.add("oculto");
+    panelEstudiante.classList.remove("oculto");
+    setTimeout(() => inputCodigoEstudiante.focus(), 50);
+});
+
+btnVolverAcceso.addEventListener("click", mostrarPanelAcceso);
+
+// Vincular este celular con el código que generó un adulto
+formEstudiante.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    limpiarAviso();
+
+    const codigo = normalizarCodigo(inputCodigoEstudiante.value);
+
+    if (codigo.length !== 9) {
+        mostrarAviso("El código tiene 8 letras y números, como K7M2-Q9XA.", true);
+        return;
+    }
+
+    btnEntrarEstudiante.disabled = true;
+    vinculando = true;
+
+    try {
+        // 1. Entrar con una "cuenta invisible" (inicio anónimo), si aún no hay una
+        let usuario = auth.currentUser;
+        if (!usuario) {
+            const credencial = await signInAnonymously(auth);
+            usuario = credencial.user;
+        }
+
+        // 2. Buscar el código
+        const resultado = await getDoc(doc(refCodigos, codigo));
+        if (!resultado.exists()) {
+            throw new Error("codigo-invalido");
+        }
+
+        const datosCodigo = resultado.data();
+        if (datosCodigo.expira.toMillis() < Date.now()) {
+            throw new Error("codigo-vencido");
+        }
+
+        // 3. Crear el vínculo entre este celular y el perfil del hijo
+        await setDoc(doc(refEstudiantes, usuario.uid), {
+            hijoId: datosCodigo.hijoId,
+            nombre: datosCodigo.nombre,
+            emoji: datosCodigo.emoji,
+            codigo: codigo,
+            vinculadoEn: serverTimestamp()
+        });
+
+        // 4. Borrar el código para que nadie más lo use
+        await deleteDoc(doc(refCodigos, codigo)).catch(() => {});
+
+        vinculando = false;
+        await revisarUsuario(usuario);
+    } catch (error) {
+        vinculando = false;
+        console.error("Error al vincular:", error);
+        mostrarAviso(traducirErrorCodigo(error), true);
+    } finally {
+        btnEntrarEstudiante.disabled = false;
+    }
+});
+
+// "k7m2 q9xa" → "K7M2-Q9XA"
+function normalizarCodigo(texto) {
+    const limpio = texto.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    return limpio.length === 8 ? `${limpio.slice(0, 4)}-${limpio.slice(4)}` : limpio;
+}
+
+function traducirErrorCodigo(error) {
+    if (error.message === "codigo-invalido") {
+        return "Ese código no existe o ya fue usado. Pide uno nuevo.";
+    }
+    if (error.message === "codigo-vencido" || error.code === "permission-denied") {
+        return `Ese código ya venció o no es válido. Pide uno nuevo (duran ${MINUTOS_CODIGO} minutos).`;
+    }
+    if (error.code === "auth/operation-not-allowed" || error.code === "auth/admin-restricted-operation") {
+        return "El acceso de estudiantes no está activado en Firebase (inicio de sesión anónimo).";
+    }
+    if (error.code === "auth/network-request-failed" || error.code === "unavailable") {
+        return "No hay conexión a internet.";
+    }
+    return "No se pudo vincular este celular. Inténtalo otra vez.";
+}
+
 // Firebase avisa cada vez que alguien entra o sale
 onAuthStateChanged(auth, revisarUsuario);
 
@@ -357,13 +480,33 @@ async function revisarUsuario(usuario) {
 
     // 1. Nadie ha iniciado sesión (al cerrar sesión, también se quita el modo niño)
     if (!usuario) {
+        estudiante = null;
+        document.body.classList.remove("modo-estudiante");
         salirModoNino();
         mostrarPantalla("sin-sesion");
         mostrarPanelAcceso();
+
+        if (avisoPendiente) {
+            mostrarAviso(avisoPendiente, true);
+            avisoPendiente = "";
+        }
         return;
     }
 
-    // 2. Se registró con correo pero aún no lo verifica
+    // 2. Celular de un hijo (inicio anónimo vinculado con un código)
+    if (usuario.isAnonymous) {
+        if (!vinculando) {
+            await revisarEstudiante(usuario);
+        }
+        return;
+    }
+
+    // A partir de aquí: es un adulto
+    estudiante = null;
+    document.body.classList.remove("modo-estudiante");
+    modoNino = localStorage.getItem("modoNino");
+
+    // 3. Se registró con correo pero aún no lo verifica
     if (!usuario.emailVerified) {
         mostrarPantalla("sin-sesion");
         mostrarPanelMensaje(
@@ -373,7 +516,7 @@ async function revisarUsuario(usuario) {
         return;
     }
 
-    // 3. Comprobar si su correo está en la familia (las reglas lo deciden)
+    // 4. Comprobar si su correo está en la familia (las reglas lo deciden)
     try {
         await getDoc(refFamilia);
     } catch (error) {
@@ -393,7 +536,7 @@ async function revisarUsuario(usuario) {
         return;
     }
 
-    // 4. Todo bien: mostrar la app
+    // 5. Todo bien: mostrar la app
     nombreUsuario.textContent = `👋 ${usuario.displayName || usuario.email}`;
     mostrarPantalla("con-sesion");
     document.body.classList.toggle("modo-nino", Boolean(modoNino));
@@ -401,10 +544,48 @@ async function revisarUsuario(usuario) {
     escucharFamilia();
     escucharTareas();
     escucharSugerencias();
+    escucharEstudiantes();
     cargarConfigRecordatorios();
 
-    // 5. Si la app se abrió desde "Compartir", procesar ese texto
+    // 6. Si la app se abrió desde "Compartir", procesar ese texto
     procesarTextoCompartido();
+}
+
+// El celular de un hijo: revisar que siga vinculado y mostrar solo sus tareas
+async function revisarEstudiante(usuario) {
+    try {
+        const vinculo = await getDoc(doc(refEstudiantes, usuario.uid));
+
+        // Si fue desvinculado (o nunca se vinculó), volver a la pantalla de inicio
+        if (!vinculo.exists()) {
+            avisoPendiente = "Este celular ya no está vinculado. Pide un código nuevo a tu papá o mamá.";
+            await signOut(auth);
+            return;
+        }
+
+        estudiante = vinculo.data();
+
+        // Usar la vista del modo niño, con los datos de este hijo
+        modoNino = estudiante.hijoId;
+        familia = {
+            miembros: [],
+            hijos: [{ id: estudiante.hijoId, nombre: estudiante.nombre, emoji: estudiante.emoji }]
+        };
+
+        textoCompartido = "";
+        mostrarPantalla("con-sesion");
+        document.body.classList.add("modo-nino", "modo-estudiante");
+        tituloNino.textContent = `${estudiante.emoji} Tareas de ${estudiante.nombre}`;
+
+        escucharTareasEstudiante();
+    } catch (error) {
+        console.error("Error al revisar el vínculo del estudiante:", error);
+        mostrarPantalla("sin-sesion");
+        mostrarPanelMensaje(
+            "No se pudo conectar",
+            "Revisa tu conexión a internet y presiona reintentar."
+        );
+    }
 }
 
 // Cambia la clase del <body>: "cargando", "sin-sesion" o "con-sesion"
@@ -416,6 +597,7 @@ function mostrarPantalla(estado) {
 function mostrarPanelAcceso() {
     limpiarAviso();
     panelAcceso.classList.remove("oculto");
+    panelEstudiante.classList.add("oculto");
     panelMensaje.classList.add("oculto");
 }
 
@@ -424,6 +606,7 @@ function mostrarPanelMensaje(titulo, texto) {
     mensajeTitulo.textContent = titulo;
     mensajeTexto.textContent = texto;
     panelAcceso.classList.add("oculto");
+    panelEstudiante.classList.add("oculto");
     panelMensaje.classList.remove("oculto");
 }
 
@@ -489,7 +672,7 @@ function escucharFamilia() {
     );
 }
 
-// Escucha la colección de tareas
+// Escucha todas las tareas (adultos)
 function escucharTareas() {
     dejarDeEscucharTareas = onSnapshot(
         refTareas,
@@ -498,6 +681,24 @@ function escucharTareas() {
             mostrarTareas();
 
             // Si el detalle de una tarea está abierto, actualizarlo con los datos nuevos
+            if (dialogoDetalle.open) {
+                dibujarDetalle();
+            }
+        },
+        manejarErrorEscucha
+    );
+}
+
+// Escucha solo las tareas del hijo (celular del estudiante)
+function escucharTareasEstudiante() {
+    const consulta = query(refTareas, where("hijoId", "==", estudiante.hijoId));
+
+    dejarDeEscucharTareas = onSnapshot(
+        consulta,
+        function (resultado) {
+            tareas = resultado.docs.map(d => ({ id: d.id, ...d.data() }));
+            mostrarTareas();
+
             if (dialogoDetalle.open) {
                 dibujarDetalle();
             }
@@ -525,7 +726,21 @@ function escucharSugerencias() {
     );
 }
 
-// Si alguien te quita de la familia mientras usas la app, volver a revisar tu acceso
+// Escucha los celulares de los hijos vinculados (adultos)
+function escucharEstudiantes() {
+    dejarDeEscucharEstudiantes = onSnapshot(
+        refEstudiantes,
+        function (resultado) {
+            estudiantes = resultado.docs.map(d => ({ id: d.id, ...d.data() }));
+            dibujarEstudiantes();
+        },
+        function (error) {
+            console.error("Error al escuchar los celulares vinculados:", error);
+        }
+    );
+}
+
+// Si alguien pierde el permiso mientras usa la app, volver a revisar su acceso
 function manejarErrorEscucha(error) {
     console.error("Error al escuchar datos:", error);
     if (error.code === "permission-denied") {
@@ -535,7 +750,10 @@ function manejarErrorEscucha(error) {
 
 // Deja de escuchar (por ejemplo, al cerrar sesión)
 function detenerEscucha() {
-    [dejarDeEscucharTareas, dejarDeEscucharFamilia, dejarDeEscucharSugerencias].forEach(function (detener) {
+    [
+        dejarDeEscucharTareas, dejarDeEscucharFamilia,
+        dejarDeEscucharSugerencias, dejarDeEscucharEstudiantes
+    ].forEach(function (detener) {
         if (detener) {
             detener();
         }
@@ -543,9 +761,11 @@ function detenerEscucha() {
     dejarDeEscucharTareas = null;
     dejarDeEscucharFamilia = null;
     dejarDeEscucharSugerencias = null;
+    dejarDeEscucharEstudiantes = null;
 
     tareas = [];
     sugerencias = [];
+    estudiantes = [];
     avisosPendientes = [];
     avisoEnRevision = null;
     tareaEnEdicion = null;
@@ -554,7 +774,7 @@ function detenerEscucha() {
     filtroHijo = "todos";
 
     [
-        dialogoFamilia, dialogoNino, dialogoPin, dialogoPegar,
+        dialogoFamilia, dialogoCodigo, dialogoNino, dialogoPin, dialogoPegar,
         dialogoSugerencias, dialogoAvisos, dialogoDetalle, dialogoRecordatorios
     ].forEach(function (dialogo) {
         if (dialogo.open) {
@@ -610,17 +830,18 @@ function dibujarDetalle() {
 
     agregarFilaDetalle("Estado", tarea.realizada ? "✅ Realizada" : "⏳ Pendiente");
 
-    if (tarea.creadoPor) {
+    // Quién la creó o editó: solo para los adultos
+    if (!estudiante && tarea.creadoPor) {
         const cuando = formatearMomento(tarea.creadoEn);
         agregarFilaDetalle("Creada por", cuando ? `${tarea.creadoPor} · ${cuando}` : tarea.creadoPor);
     }
 
-    if (tarea.editadoPor) {
+    if (!estudiante && tarea.editadoPor) {
         const cuando = formatearMomento(tarea.editadoEn);
         agregarFilaDetalle("Editada por", cuando ? `${tarea.editadoPor} · ${cuando}` : tarea.editadoPor);
     }
 
-    if (tarea.origen) {
+    if (!estudiante && tarea.origen) {
         agregarFilaDetalle("Origen", nombresOrigen[tarea.origen] || tarea.origen);
     }
 
@@ -1110,16 +1331,117 @@ function dibujarFamilia() {
         const texto = document.createElement("span");
         texto.textContent = `${hijo.emoji} ${hijo.nombre}`;
 
-        const boton = document.createElement("button");
-        boton.type = "button";
-        boton.className = "btn-quitar";
-        boton.textContent = "Quitar";
-        boton.addEventListener("click", () => quitarHijo(hijo));
+        const acciones = document.createElement("div");
+        acciones.className = "acciones-hijo";
 
-        li.append(texto, boton);
+        // Generar un código para vincular el celular de este hijo
+        const btnVincular = document.createElement("button");
+        btnVincular.type = "button";
+        btnVincular.className = "btn-vincular";
+        btnVincular.textContent = "📱 Vincular";
+        btnVincular.addEventListener("click", () => generarCodigoVinculacion(hijo, btnVincular));
+
+        const btnQuitar = document.createElement("button");
+        btnQuitar.type = "button";
+        btnQuitar.className = "btn-quitar";
+        btnQuitar.textContent = "Quitar";
+        btnQuitar.addEventListener("click", () => quitarHijo(hijo));
+
+        acciones.append(btnVincular, btnQuitar);
+        li.append(texto, acciones);
         listaHijos.appendChild(li);
     });
 }
+
+// Dibuja los celulares vinculados, con un botón para desvincular
+function dibujarEstudiantes() {
+    listaEstudiantes.innerHTML = "";
+
+    if (estudiantes.length === 0) {
+        const vacio = document.createElement("li");
+        vacio.className = "vacio-familia";
+        vacio.textContent = "Ningún celular vinculado todavía";
+        listaEstudiantes.appendChild(vacio);
+        return;
+    }
+
+    estudiantes.forEach(function (vinculo) {
+        const li = document.createElement("li");
+        const texto = document.createElement("span");
+        const cuando = formatearMomento(vinculo.vinculadoEn);
+        texto.textContent = cuando
+            ? `${vinculo.emoji} ${vinculo.nombre} · vinculado el ${cuando}`
+            : `${vinculo.emoji} ${vinculo.nombre}`;
+
+        const boton = document.createElement("button");
+        boton.type = "button";
+        boton.className = "btn-quitar";
+        boton.textContent = "Desvincular";
+        boton.addEventListener("click", () => desvincularEstudiante(vinculo));
+
+        li.append(texto, boton);
+        listaEstudiantes.appendChild(li);
+    });
+}
+
+// Crea un código temporal para vincular el celular de un hijo
+async function generarCodigoVinculacion(hijo, boton) {
+    limpiarAvisoFamilia();
+    boton.disabled = true;
+
+    try {
+        const codigo = crearCodigo();
+        const expira = new Date(Date.now() + MINUTOS_CODIGO * 60 * 1000);
+
+        await setDoc(doc(refCodigos, codigo), {
+            hijoId: hijo.id,
+            nombre: hijo.nombre,
+            emoji: hijo.emoji,
+            creadoPor: auth.currentUser.email,
+            expira: Timestamp.fromDate(expira)
+        });
+
+        textoCodigoPara.textContent = `Para ${hijo.emoji} ${hijo.nombre}`;
+        codigoGenerado.textContent = codigo;
+        textoExpiraCodigo.textContent =
+            `Válido hasta las ${expira.toLocaleTimeString("es-EC", { hour: "2-digit", minute: "2-digit" })} (${MINUTOS_CODIGO} minutos). Se puede usar una sola vez.`;
+
+        dialogoCodigo.showModal();
+    } catch (error) {
+        console.error(error);
+        mostrarAvisoFamilia("No se pudo generar el código. Revisa que hayas publicado las reglas nuevas.", true);
+    } finally {
+        boton.disabled = false;
+    }
+}
+
+// Genera un código como "K7M2-Q9XA" con letras al azar seguras
+function crearCodigo() {
+    const numeros = new Uint32Array(8);
+    crypto.getRandomValues(numeros);
+
+    const letras = [...numeros].map(n => LETRAS_CODIGO[n % LETRAS_CODIGO.length]).join("");
+    return `${letras.slice(0, 4)}-${letras.slice(4)}`;
+}
+
+// Quitar el acceso a un celular vinculado
+async function desvincularEstudiante(vinculo) {
+    if (!confirm(`¿Desvincular el celular de ${vinculo.nombre}? Dejará de ver las tareas al instante.`)) {
+        return;
+    }
+    limpiarAvisoFamilia();
+
+    try {
+        await deleteDoc(doc(refEstudiantes, vinculo.id));
+        mostrarAvisoFamilia(`El celular de ${vinculo.nombre} fue desvinculado.`, false);
+    } catch (error) {
+        console.error(error);
+        mostrarAvisoFamilia("No se pudo desvincular el celular.", true);
+    }
+}
+
+btnCerrarCodigo.addEventListener("click", () => dialogoCodigo.close());
+btnListoCodigo.addEventListener("click", () => dialogoCodigo.close());
 
 // Dibuja los botones de filtro por hijo
 function dibujarFiltroHijos() {
@@ -1192,6 +1514,7 @@ function limpiarAvisoFamilia() {
     avisoFamilia.className = "";
 }
 
+// ===== FIN DE LA PARTE A — pega la Parte B justo debajo de esta línea =====
 
 // ===== Modo niño =====
 
@@ -1506,7 +1829,7 @@ async function cambiarEstado(id) {
     }
     const quedaraHecha = !tarea.realizada;
 
-    // En modo niño, felicitar al marcar una tarea como hecha
+    // En modo niño (o en el celular del hijo), felicitar al marcar una tarea como hecha
     if (modoNino && quedaraHecha) {
         const hijo = buscarHijo(modoNino);
         mostrarToast(`¡Bien hecho${hijo ? ", " + hijo.nombre : ""}! 🎉`);

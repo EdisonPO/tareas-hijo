@@ -1432,3 +1432,102 @@ body.modo-nino #btn-detalle-eliminar {
 #aviso-recordatorios:empty {
     display: none;
 }
+
+/* ===== Acceso de estudiantes (pantalla de inicio) ===== */
+.btn-estudiante {
+    width: 100%;
+    margin-top: 20px;
+    padding: 13px;
+    border: 2px dashed var(--naranja);
+    border-radius: 12px;
+    background-color: #fff7ed;
+    color: #9a3412;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-estudiante:hover {
+    background-color: var(--naranja);
+    color: white;
+}
+
+.input-codigo {
+    text-align: center;
+    font-size: 1.5rem !important;
+    font-weight: 800;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+}
+
+#btn-entrar-estudiante:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+/* ===== Ventana del código de vinculación ===== */
+.codigo-grande {
+    margin: 16px 0 8px;
+    padding: 18px;
+    border: 3px dashed var(--morado);
+    border-radius: 16px;
+    background-color: #faf8ff;
+    color: var(--morado-oscuro);
+    text-align: center;
+    font-size: 2.2rem;
+    font-weight: 800;
+    letter-spacing: 6px;
+    word-break: break-all;
+    user-select: all;
+}
+
+#texto-expira-codigo {
+    text-align: center;
+}
+
+.pasos-codigo {
+    margin: 10px 0 16px;
+    padding-left: 22px;
+    color: var(--texto);
+    font-weight: 600;
+}
+
+.pasos-codigo li {
+    margin-bottom: 6px;
+}
+
+/* ===== Botones dentro de la lista de hijos y de celulares ===== */
+.acciones-hijo {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.btn-vincular {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    background-color: white;
+    color: var(--morado);
+    border: 2px solid var(--morado);
+    border-radius: 999px;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-vincular:hover {
+    background-color: var(--morado);
+    color: white;
+}
+
+.btn-vincular:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+/* ===== Celular del estudiante: no tiene botón de salir ===== */
+body.modo-estudiante #btn-salir-nino {
+    display: none;
+}
